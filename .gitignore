@@ -1,0 +1,11 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+LME_14.rds
+observed_LME_14.csv
+.Rapp.history
+grid_results.RDS
+.DS_Store
+.ipynb_checkpoints
+**/__pycache__/
