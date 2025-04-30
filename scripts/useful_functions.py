@@ -1467,4 +1467,172 @@ def decadal_catches(catches_da, mask_da, **kwargs):
     if 'attrs' in kwargs.keys():
         dec_da = dec_da.assign_attrs(kwargs.get('attrs'))
     return dec_da
+
+
+# Calculate lowest maximum difference across timesteps ----
+def lowest_maximum_absolute_diff(folder_path, resolution, var_name, prop = 1):
+    '''
+    folder_path (character) - Full path to folder containing files of interest
+    resolution (character) - Resolution of the data to be used in calculations
+    var_name (character) - Name of variable of interest as included in file name
+    prop (numeric) - Default is 1. Multiplier to be applied to lowest maximum
+    absolute difference if problems with model persist
+
+    Output:
+    low_max_diff (numeric) - Smallest maximum absolute difference across time
+    '''
+    # Find ctrlclim and obsclim files
+    [ctrl_file] = glob(os.path.join(folder_path, resolution, f'*_ctrlclim_{var_name}_*'))
+    [obs_file] = glob(os.path.join(folder_path, resolution, f'*_obsclim_{var_name}_*'))
+    # Load files
+    ds_ctrl = abs(xr.open_zarr(ctrl_file)[var_name].diff(dim = 'time'))
+    ds_obs = abs(xr.open_zarr(obs_file)[var_name].diff(dim = 'time'))
+    # Calculate lowest maximum difference
+    low_max_diff = min(ds_ctrl.max().values, ds_obs.max().values)
+    return low_max_diff*prop
+
+
+# Remove grid cells exceeding temporal difference
+def mask_absolute_diff(folder_path, resolution, experiment, var_name, threshold):
+    '''
+    folder_path (character) - Full path to folder containing files of interest
+    resolution (character) - Resolution of the data to be used in calculations
+    experiment (character) - Experiment name: obsclim, ctrlclim, spinup, or 
+    stable-spin
+    var_name (character) - Name of variable of interest as included in file name
+    threshold (numeric) - Threshold is used as the maximum temporal difference 
+    allowed in the dataset
+
+    Output:
+    No outputs returned. Masked xarray dataset saved to the same folder provided  
+    in 'folder_path'.
+    '''
+    # Identify file name
+    [file_target] = glob(os.path.join(folder_path, resolution, f'*_{experiment}_{var_name}_*'))
+    # Creating filename to store result
+    fout = os.path.basename(file_target).replace(f'_{var_name}_', f'_{var_name}-capped_')
+    # Load data
+    ds = xr.open_zarr(file_target)[var_name]
+    # Calculate absolute difference across time steps
+    ds_diff = abs(ds.diff(dim = 'time'))
+    # Identify grid cells where threshold is exceeded
+    mask = xr.where(ds > threshold, 1, 0)
+    # Assign NA to grid cells where threshold is exceeded at least once
+    ds_masked = xr.where(mask > 0, np.nan, ds)
+    # Save result
+    fout = os.path.join(folder_path, resolution, fout)
+    ds_masked.to_zarr(fout, consolidated = True, mode = 'w')
     
+    numb_nas = mask.sum().values
+    print(f'Total number of grid cells exceeding threshold ({threshold}) '+
+          f'in {var_name} {experiment}: {numb_nas}')
+
+
+# Recalculating phytoplankton-based variables from masked phytoplankton data 
+def exportRatio_intercept_slope(folder_path, resolution, experiment,
+                                mmin = 10**(-14.25), mmid = 10**(-10.184), 
+                                mmax = 10**(-5.25)):
+    '''
+    Inputs:
+    - folder_path (character) File path pointing to folder containing
+    zarr files with GFDL data for the region of interest
+    - resolution (character) Resolution of the data that will be processed
+    - experiment (character) Select 'ctrlclim','obsclim', 'spinup', 'stable-spin'
+    The parameters below come from the 'GetPPIntSlope' function:
+    - mmin (numeric)  Default is 10**(-14.25). ????
+    - mmid (numeric)  Default is 10**(-10.184). ????
+    - mmax (numeric)  Default is 10**(-5.25). ????
+
+    Outputs:
+    No outputs returned, but export ratio, as well as the slope and intercept for 
+    phytoplankton are saved in the folder provided in 'folder_path'. 
+    ui0 is also calculated and saved, but under 'gridded_params'
+    '''
+
+    #Get list of files in experiment
+    file_list = glob(os.path.join(folder_path, resolution, f'*_{experiment}_*'))
+
+    #load depth
+    if experiment == 'obsclim':
+        [depth_file] = glob(os.path.join(folder_path, resolution, 
+                                         f'*_{experiment}_deptho_*'))
+    else:
+        [depth_file] = glob(os.path.join(folder_path, resolution,
+                                         f'*_ctrlclim_deptho_*'))
+    depth = xr.open_zarr(depth_file)['deptho']
+    
+    #Load sea surface temperature
+    tos = xr.open_zarr([f for f in file_list if '_tos_' in f][0])['tos']
+    
+    #Load small phytoplankton
+    sphy = xr.open_zarr([f for f in file_list if '_sphy-capped_' in f][0])['sphy']
+    
+    #Load large phytoplankton
+    lphy = xr.open_zarr([f for f in file_list if '_lphy-capped_' in f][0])['lphy']
+
+    #Calculate total phytoplankton
+    ptotal = lphy+sphy
+
+    #Calculate phytoplankton size ratios
+    plarge = lphy/ptotal
+    psmall = sphy/ptotal
+
+    #Calculate export ration
+    er = (np.exp(-0.032*tos)*((0.14*psmall)+(0.74*(plarge)))+
+          (0.0228*(plarge)*(depth*0.004)))/(1+(depth*0.004))
+    #If values are negative, assign a value of 0
+    er = xr.where(er < 0, 0, er)
+    #If values are above 1, assign a value of 1
+    er = xr.where(er > 1, 1, er)
+    er.name = 'export_ratio'
+
+    #Creating file path to save export ratio
+    [fout] = [os.path.basename(f) for f in file_list if '_er_' in f]
+    fout = os.path.join(folder_path, '025deg', fout.replace('_er_', 
+                                                            '_er-capped_'))
+    er.to_zarr(fout, consolidated = True, mode = 'w')
+
+    #Convert sphy and lphy from mol C / m^3 to g C / m^3
+    sphy = sphy*12.0107
+    lphy = lphy*12.0107
+
+    #Calculate a and b in log B (log10 abundance) vs. log M (log10 gww)
+    #in log10 gww
+    midsmall = np.log10((mmin+mmid)/2) 
+    midlarge = np.log10((mmid+mmax)/2)
+
+    #convert to log10 (gww/size class median size) for log10 abundance
+    small = np.log10((sphy*10)/(10**midsmall))
+    #convert to log10 (gww/size class median size) for log10 abundance
+    large = np.log10((lphy*10)/(10**midlarge))
+
+    #Calculating lope
+    slope = (small-large)/(midsmall-midlarge)
+    slope.name = 'slope'
+
+    #Creating file path to save slope
+    [fout] = [os.path.basename(f) for f in file_list if '_slope_' in f]
+    fout = os.path.join(folder_path, '025deg', fout.replace('_slope_', 
+                                                            '_slope-capped_'))
+    slope.to_zarr(fout, consolidated = True, mode = 'w')
+
+    #intercept is really log10(intercept), same a when small, midsmall are used
+    intercept = large-(slope*midlarge)
+    intercept.name = 'intercept'
+
+    #Creating file path to save intercept
+    [fout] = [os.path.basename(f) for f in file_list if '_intercept_' in f]
+    fout = os.path.join(folder_path, '025deg', fout.replace('_intercept_', 
+                                                            '_intercept-capped_'))
+    intercept.to_zarr(fout, consolidated = True, mode = 'w')
+
+    if experiment in ['obsclim', 'spinup']:
+        ui0 = 10**intercept
+        if experiment == 'obsclim':
+            [fout] = glob(os.path.join(folder_path+'_params', '025deg', 
+                                       f'ui0_[0-9]*'))
+        else:
+            [fout] = glob(os.path.join(folder_path+'_params', '025deg',
+                                       f'ui0_spinup*'))
+        ui0.to_zarr(fout.replace('ui0_', 'ui0-capped_'), consolidated = True, 
+                    mode = 'w')
