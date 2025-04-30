@@ -1,6 +1,6 @@
 
 # Loading libraries -------------------------------------------------------
-source("new_workflow/useful_functions.R")
+source("scripts/useful_functions.R")
 library(dplyr)
 library(arrow)
 library(jsonlite)
