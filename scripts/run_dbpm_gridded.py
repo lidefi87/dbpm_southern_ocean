@@ -60,7 +60,7 @@ if __name__ == '__main__':
     ## Loading dynamic data ----
     gridded_esm = os.path.join(base_folder, 'gridded', model_res)
     ds_dynamic = uf.loading_dbpm_dynamic_inputs(gridded_esm, gridded_folder,
-                                                init_time = init_time)
+                                                init_time = init_time, capped = True)
   
     if init_time is not None:
         init_yr = pd.Timestamp(init_time).year
