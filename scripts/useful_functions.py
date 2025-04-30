@@ -648,9 +648,11 @@ def loading_dbpm_dynamic_inputs(gridded_esm, gridded_calc, init_time = None):
         subset_time = (pd.Timestamp(init_time)+pd.DateOffset(months = 1)).strftime('%Y-%m')
         
     if init_time is None or init_yr < 1959:
-        ui0 = xr.open_mfdataset(glob(os.path.join(gridded_calc, 'ui0_spinup*')), 
+        # ui0 = xr.open_mfdataset(glob(os.path.join(gridded_calc, 'ui0_spinup*')), 
+        ui0 = xr.open_mfdataset(glob(os.path.join(gridded_calc, 'ui0-capped_spinup_*')), 
                                 engine = 'zarr')['ui0']
-        slope = xr.open_mfdataset(glob(os.path.join(gridded_esm, '*spinup_slope_*')), 
+        # slope = xr.open_mfdataset(glob(os.path.join(gridded_esm, '*spinup_slope_*')), 
+        slope = xr.open_mfdataset(glob(os.path.join(gridded_esm, '*spinup_slope-capped_*')), 
                                   engine = 'zarr')['slope']
         pel_tempeffect = xr.open_mfdataset(glob(
             os.path.join(gridded_calc, 'pel-temp-eff_spinup*')), 
@@ -658,15 +660,18 @@ def loading_dbpm_dynamic_inputs(gridded_esm, gridded_calc, init_time = None):
         ben_tempeffect = xr.open_mfdataset(
             glob(os.path.join(gridded_calc, 'ben-temp-eff_spinup*')), 
             engine = 'zarr')['ben_temp_eff']
-        sinking_rate = xr.open_mfdataset(glob(os.path.join(gridded_esm, '*_spinup_er_*')),
+        # sinking_rate = xr.open_mfdataset(glob(os.path.join(gridded_esm, '*_spinup_er_*')),
+        sinking_rate = xr.open_mfdataset(glob(os.path.join(gridded_esm, '*_spinup_er-capped_*')),
                                          engine = 'zarr')['export_ratio']
     #Spinup data plus obsclim are loaded if init_time is 1960
     elif init_yr >= 1959 and init_yr < 1961:
         exp = ['spinup', 'obsclim']
-        ui0 = xr.open_mfdataset(glob(os.path.join(gridded_calc, 'ui0_*')), 
+        # ui0 = xr.open_mfdataset(glob(os.path.join(gridded_calc, 'ui0_*')), 
+        ui0 = xr.open_mfdataset(glob(os.path.join(gridded_calc, 'ui0-capped_*')), 
                                 engine = 'zarr')['ui0']
         slope = xr.open_mfdataset([f for ex in exp for f in glob(
-            os.path.join(base_folder, 'gridded', model_res, f'*{ex}_slope_*'))], 
+            # os.path.join(base_folder, 'gridded', model_res, f'*{ex}_slope_*'))], 
+            os.path.join(base_folder, 'gridded', model_res, f'*{ex}_slope-capped_*'))], 
                                   engine = 'zarr')['slope']
         pel_tempeffect = xr.open_mfdataset(glob(
             os.path.join(gridded_calc, 'pel-temp-eff_*')), engine = 'zarr')['pel_temp_eff']
@@ -674,18 +679,22 @@ def loading_dbpm_dynamic_inputs(gridded_esm, gridded_calc, init_time = None):
             glob(os.path.join(gridded_calc, 'ben-temp-eff_*')), 
             engine = 'zarr')['ben_temp_eff']
         sinking_rate = xr.open_mfdataset([f for ex in exp for f in glob(
-            os.path.join(base_folder, 'gridded', model_res, f'*{ex}_er_*'))], 
+            # os.path.join(base_folder, 'gridded', model_res, f'*{ex}_er_*'))], 
+            os.path.join(base_folder, 'gridded', model_res, f'*{ex}_er-capped_*'))], 
                                          engine = 'zarr')['export_ratio']
     else:
-        ui0 = xr.open_mfdataset(glob(os.path.join(gridded_calc, 'ui0_[0-9]*')),
+        # ui0 = xr.open_mfdataset(glob(os.path.join(gridded_calc, 'ui0_[0-9]*')),
+        ui0 = xr.open_mfdataset(glob(os.path.join(gridded_calc, 'ui0-capped_[0-9]*')),
                                 engine = 'zarr')['ui0']
-        slope = xr.open_mfdataset(glob(os.path.join(gridded_esm, '*obsclim_slope_*')),
+        # slope = xr.open_mfdataset(glob(os.path.join(gridded_esm, '*obsclim_slope_*')),
+        slope = xr.open_mfdataset(glob(os.path.join(gridded_esm, '*obsclim_slope-capped_*')),
                                   engine = 'zarr')['slope']
         pel_tempeffect = xr.open_mfdataset(glob(
             os.path.join(gridded_calc, 'pel-temp-eff_[0-9]*')), engine = 'zarr')['pel_temp_eff']
         ben_tempeffect = xr.open_mfdataset(glob(
             os.path.join(gridded_calc, 'ben-temp-eff_[0-9]*')), engine = 'zarr')['ben_temp_eff']
-        sinking_rate = xr.open_mfdataset(glob(os.path.join(gridded_esm, '*_obsclim_er_*')),
+        # sinking_rate = xr.open_mfdataset(glob(os.path.join(gridded_esm, '*_obsclim_er_*')),
+        sinking_rate = xr.open_mfdataset(glob(os.path.join(gridded_esm, '*_obsclim_er-capped_*')),
                                          engine = 'zarr')['export_ratio']
 
     #Subset data
@@ -1628,6 +1637,7 @@ def exportRatio_intercept_slope(folder_path, resolution, experiment,
 
     if experiment in ['obsclim', 'spinup']:
         ui0 = 10**intercept
+        ui0.name = 'ui0'
         if experiment == 'obsclim':
             [fout] = glob(os.path.join(folder_path+'_params', '025deg', 
                                        f'ui0_[0-9]*'))
