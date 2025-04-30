@@ -2,7 +2,7 @@
 
 # Library of useful functions
 # Authors: Denisse Fierro Arcos
-# Date last update: 2025-03-25
+# Date last update: 2025-04-30
 
 # Loading libraries
 import xarray as xr
