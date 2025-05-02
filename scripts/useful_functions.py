@@ -653,8 +653,21 @@ def loading_dbpm_dynamic_inputs(gridded_esm, gridded_calc, init_time = None,
         cap_search = '-capped'
     else:
         cap_search = ''
-        
-    if init_time is None or init_yr < 1959:
+    
+    if init_time is None or init_yr < 1841:
+        ui0 = xr.open_mfdataset(glob(os.path.join(
+            gridded_calc, f'ui0{cap_search}_stable-spin*')), engine = 'zarr')['ui0']
+        slope = xr.open_mfdataset(glob(os.path.join(
+            gridded_esm, f'*stable-spin_slope{cap_search}_*')), engine = 'zarr')['slope']
+        pel_tempeffect = xr.open_mfdataset(glob(
+            os.path.join(gridded_calc, 'pel-temp-eff_stable-spin*')), 
+                                           engine = 'zarr')['pel_temp_eff']
+        ben_tempeffect = xr.open_mfdataset(glob(os.path.join(
+            gridded_calc, 'ben-temp-eff_stable-spin*')), engine = 'zarr')['ben_temp_eff']
+        sinking_rate = xr.open_mfdataset(
+            glob(os.path.join(gridded_esm, f'*_stable-spin_er{cap_search}_*')),
+            engine = 'zarr')['export_ratio']
+    elif init_time >= 1841 or init_yr < 1959:
         ui0 = xr.open_mfdataset(glob(os.path.join(
             gridded_calc, f'ui0{cap_search}_spinup*')), engine = 'zarr')['ui0']
         slope = xr.open_mfdataset(glob(os.path.join(
