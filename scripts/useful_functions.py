@@ -667,7 +667,7 @@ def loading_dbpm_dynamic_inputs(gridded_esm, gridded_calc, init_time = None,
         sinking_rate = xr.open_mfdataset(
             glob(os.path.join(gridded_esm, f'*_stable-spin_er{cap_search}_*')),
             engine = 'zarr')['export_ratio']
-    elif init_yr >= 1841 or init_yr < 1959:
+    elif init_yr >= 1841 and init_yr < 1959:
         ui0 = xr.open_mfdataset(glob(os.path.join(
             gridded_calc, f'ui0{cap_search}_spinup*')), engine = 'zarr')['ui0']
         slope = xr.open_mfdataset(glob(os.path.join(
