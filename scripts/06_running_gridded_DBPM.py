@@ -30,14 +30,14 @@ if __name__ == '__main__':
     ## Defining input and output folders ----
     base_folder = '/g/data/vf71/la6889/dbpm_inputs/weddell/'
     gridded_folder = os.path.join(base_folder, 'gridded_params', model_res)
-    out_folder = os.path.join(base_folder, 'test_capped', model_res)
+    out_folder = os.path.join(base_folder, 'run_fishing', model_res)
     #If output folder does not exist, it will create it
     os.makedirs(out_folder, exist_ok = True) 
 
     ## If starting DBPM run from a specific time step ----
     # Character: Year and month from when DBPM initialisation values should be 
     # loaded. If starting model for the first time, it should be set to None
-    init_time = '1879-06'
+    init_time = None
     
     ## Loading fixed DBPM parameters ----
     ds_fixed = uf.loading_dbpm_fixed_inputs(gridded_folder)

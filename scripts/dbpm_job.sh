@@ -12,4 +12,4 @@
 
 module use /g/data/xp65/public/modules
 module load conda/analysis3-25.04
-python3 run_dbpm_gridded.py
+python3 06_running_gridded_DBPM.py
