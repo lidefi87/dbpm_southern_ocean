@@ -686,15 +686,13 @@ def loading_dbpm_dynamic_inputs(gridded_esm, gridded_calc, init_time = None,
         ui0 = xr.open_mfdataset(glob(os.path.join(
             gridded_calc, f'ui0{cap_search}_*')), engine = 'zarr')['ui0']
         slope = xr.open_mfdataset([f for ex in exp for f in glob(os.path.join(
-            base_folder, 'gridded', model_res, 
-            f'*{ex}_slope{cap_search}_*'))], engine = 'zarr')['slope']
+            gridded_esm, f'*{ex}_slope{cap_search}_*'))], engine = 'zarr')['slope']
         pel_tempeffect = xr.open_mfdataset(glob(os.path.join(
             gridded_calc, 'pel-temp-eff_*')), engine = 'zarr')['pel_temp_eff']
         ben_tempeffect = xr.open_mfdataset(glob(os.path.join(
             gridded_calc, 'ben-temp-eff_*')), engine = 'zarr')['ben_temp_eff']
         sinking_rate = xr.open_mfdataset([f for ex in exp for f in glob(os.path.join(
-            base_folder, 'gridded', model_res,
-            f'*{ex}_er{cap_search}_*'))], engine = 'zarr')['export_ratio']
+            gridded_esm, f'*{ex}_er{cap_search}_*'))], engine = 'zarr')['export_ratio']
     else:
         ui0 = xr.open_mfdataset(glob(os.path.join(
             gridded_calc, f'ui0{cap_search}_[0-9]*')), engine = 'zarr')['ui0']
