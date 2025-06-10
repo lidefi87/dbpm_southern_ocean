@@ -1,3 +1,4 @@
+# Finding best fishing parameters to run DBPM and non-spatial DBPM runs
 
 # Loading libraries -------------------------------------------------------
 source("scripts/useful_functions.R")
