@@ -66,10 +66,10 @@ effort_data <- file.path(fishing_folder, "DKRZ_EffortFiles",
 # Loading catches data ----------------------------------------------------
 #From Watson et al 2018
 catch_watson <- file.path(fishing_folder, "DKRZ_EffortFiles",
-                          "catch-validation_isimip3a_histsoc_1850_2004.csv") |> 
+                          "catch_histsoc_1869_2017_EEZ_addFAO.csv") |> 
   read_csv_arrow(col_select = c("Year", "fao_area", "Reported", "IUU")) |>
   #Selecting area of interest
-  filter(fao_area == fao_region) |> 
+  filter(fao_area == fao_region & Year <= 2010) |> 
   # catch is in tonnes. This was checked in "FishingEffort" project
   mutate(catch_tonnes = Reported+IUU) |> 
   group_by(Year, fao_area) |> 
