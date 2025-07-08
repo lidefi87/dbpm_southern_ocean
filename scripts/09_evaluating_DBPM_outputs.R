@@ -68,27 +68,13 @@ get_catch_dbpm_obs <- function(base_dir){
 
 
 
-#Calculating ORA metrics
-df <- catch_dbpm_obs |> 
-  group_by(res) |> 
-  group_split()
-
-catch_dbpm_obs |> 
-  group_by(res) |>
-  summarise(pear_cor = cor(pseudo, vals),
-            mae = sum(abs(vals-pseudo))/n(),
-            ri = exp(sqrt(sum(log(pseudo/vals)^2)/n())),
-            mef = (sum((pseudo-mean(pseudo))^2)-sum((vals-mean(vals))^2))/sum((pseudo-mean(pseudo))^2))
-
-
-(sum((df[[2]]$pseudo-mean(df[[2]]$pseudo))^2)-sum((df[[2]]$vals-mean(df[[2]]$vals))^2))/sum((df[[2]]$pseudo-mean(df[[2]]$pseudo))^2)
-
-
 # Loading data ------------------------------------------------------------
-name_reg <- "east_antarctica"
-reg <- "fao-58"
+name_reg <- "weddell"
+reg <- "fao-48"
 base_dir <- file.path("/g/data/vf71/la6889/dbpm_inputs", name_reg)
 
+
+# Plotting modelled vs observed catches  ----------------------------------
 catch_dbpm_obs <- get_catch_dbpm_obs(base_dir)
 
 catch_dbpm_obs |>
@@ -129,3 +115,19 @@ fout <- file.path(base_dir, "gridded_dbpm_outputs",
 
 ggsave(fout, device = "png")
 
+
+
+# Calculating ORA metrics -------------------------------------------------
+ora_metrics <- catch_dbpm_obs |> 
+  group_by(res) |>
+  summarise(pear_cor = cor(pseudo, vals),
+            mae = sum(abs(vals-pseudo))/n(),
+            ri = exp(sqrt(sum(log(pseudo/vals)^2)/n())),
+            mef = ((sum((pseudo-mean(pseudo))^2)-sum((vals-mean(vals))^2))/
+                     sum((pseudo-mean(pseudo))^2)))
+
+fout <- file.path(base_dir, "gridded_dbpm_outputs", 
+                  paste0("ora_metric_catches_all-res_", reg, 
+                         "_1961-2010.parquet"))
+ora_metrics |> 
+  write_parquet(fout)
