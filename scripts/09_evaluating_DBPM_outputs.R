@@ -77,10 +77,12 @@ catch_dbpm_obs |>
   group_by(res) |>
   summarise(pear_cor = cor(pseudo, vals),
             mae = sum(abs(vals-pseudo))/n(),
-            ri = )
+            ri = exp(sqrt(sum(log(pseudo/vals)^2)/n())),
+            mef = (sum((pseudo-mean(pseudo))^2)-sum((vals-mean(vals))^2))/sum((pseudo-mean(pseudo))^2))
 
 
-sum(abs(df[[1]]$vals-df[[1]]$pseudo))/nrow(df[[1]])
+(sum((df[[2]]$pseudo-mean(df[[2]]$pseudo))^2)-sum((df[[2]]$vals-mean(df[[2]]$vals))^2))/sum((df[[2]]$pseudo-mean(df[[2]]$pseudo))^2)
+
 
 # Loading data ------------------------------------------------------------
 name_reg <- "east_antarctica"
