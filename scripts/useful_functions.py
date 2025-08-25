@@ -471,7 +471,7 @@ def gravitymodel(effort, prop_b, depth, n_iter):
         neweffort = eff+(rel_suit*eff)
         mult = (eff.sum())/(neweffort.sum())
         eff = neweffort*mult
-        i += i
+        i += i  
 
     return eff
 
@@ -491,24 +491,33 @@ def effort_calculation(predators, detritivores, effort, depth, size_bin_vals,
     Outputs:
     - new_effort (2D data array) Fishing effort calculated for next time step
     '''
-    pred_bio = ((predators*size_bin_vals*gridded_params['log_size_increase']).
-                isel(size_class = slice(gridded_params['ind_min_fish_pred'],
-                                        -1))).sum('size_class')
-
-    det_bio = ((detritivores*size_bin_vals*gridded_params['log_size_increase']).
-               isel(size_class = slice(gridded_params['ind_min_fish_det'],
-                                       -1))).sum('size_class')
-
-    sum_bio = pred_bio+det_bio
-
-    prop_b = sum_bio/sum_bio.sum()
-
-    #Calculate new effort
-    new_effort = gravitymodel(effort, prop_b, depth, 1)
-
+    if effort.sum() != 0:
+        pred_bio = ((predators*size_bin_vals*gridded_params['log_size_increase']).
+                    isel(size_class = slice(gridded_params['ind_min_fish_pred'],
+                                            -1))).sum('size_class')
+    
+        det_bio = ((detritivores*size_bin_vals*gridded_params['log_size_increase']).
+                   isel(size_class = slice(gridded_params['ind_min_fish_det'],
+                                           -1))).sum('size_class')
+    
+        sum_bio = pred_bio+det_bio
+    
+        prop_b = sum_bio/sum_bio.sum()
+    
+        #Calculate new effort
+        new_effort = gravitymodel(effort, prop_b, depth, 1)
+    else:
+        new_effort = effort
+    
     # Adjusting time stamp
-    new_effort['time'] = [effort.time.values]
-    new_effort = new_effort.transpose('time', 'lat', 'lon')
+    try:
+        new_effort['time'] = effort.time.values
+    except:
+        new_effort['time'] = [effort.time.values]
+    try:
+        new_effort = new_effort.transpose('time', 'lat', 'lon')
+    except:
+        pass
     #Adding name
     new_effort.name = 'effort'
 
