@@ -24,11 +24,11 @@ if __name__ == '__main__':
     client = Client(threads_per_worker = 1)
 
     ## Name of region and model resolution ----
-    region = 'fao-48'
+    region = 'fao-88'
     model_res = '025deg'
     
     ## Defining input and output folders ----
-    base_folder = '/g/data/vf71/la6889/dbpm_inputs/weddell/'
+    base_folder = '/g/data/vf71/la6889/dbpm_inputs/west_antarctica/'
     gridded_folder = os.path.join(base_folder, 'gridded_params', model_res)
     out_folder = os.path.join(base_folder, 'run_fishing_new_eff', model_res)
     #If output folder does not exist, it will create it
@@ -37,7 +37,7 @@ if __name__ == '__main__':
     ## If starting DBPM run from a specific time step ----
     # Character: Year and month from when DBPM initialisation values should be 
     # loaded. If starting model for the first time, it should be set to None
-    init_time = '1969-11'
+    init_time = '2009-09'
     
     ## Loading fixed DBPM parameters ----
     ds_fixed = uf.loading_dbpm_fixed_inputs(gridded_folder)
@@ -58,13 +58,14 @@ if __name__ == '__main__':
     
     ## Loading predator, detritivores and detritus initialisation data ----
     ds_init = uf.loading_dbpm_biomass_inputs(
-        os.path.join(base_folder, 'run_fishing', model_res), init_time)
-        # os.path.join(base_folder, 'run_fishing_new_eff', model_res), init_time)
+        # os.path.join(base_folder, 'run_fishing', model_res), init_time)
+        os.path.join(base_folder, 'run_fishing_new_eff', model_res), init_time)
 
     ## Loading dynamic data ----
     gridded_esm = os.path.join(base_folder, 'gridded', model_res)
     ds_dynamic = uf.loading_dbpm_dynamic_inputs(
-        gridded_esm, gridded_folder, init_time = init_time, capped = True)
+        # gridded_esm, gridded_folder, init_time = init_time, capped = True)
+        gridded_esm, gridded_folder, init_time = init_time, capped = False)
   
     if init_time is not None:
         init_yr = pd.Timestamp(init_time).year
@@ -79,16 +80,16 @@ if __name__ == '__main__':
     effort = xr.open_zarr(glob(os.path.join(
         gridded_folder, 'new_eff_*'))[0])['effort']
     
-    # if init_time is not None:
-    #     #Load effort for time step DBPM starts
-    #     e_start = xr.open_dataarray(glob(os.path.join(
-    #         out_folder, f'effort_*_{subset_time}.nc'))[0])
-    #     #Subset effort data from the timestep after DBPM restart 
-    #     effort = effort.sel(time = slice(effort_time, None))
-    #     #Combine both data arrays
-    #     effort = xr.concat([e_start, effort], dim = 'time')
-    #     effort = effort.chunk({'lat': len(effort.lat), 'lon': len(effort.lon),
-    #                            'time': -1})
+    if init_time is not None:
+        #Load effort for time step DBPM starts
+        e_start = xr.open_dataarray(glob(os.path.join(
+            out_folder, f'effort_*_{subset_time}.nc'))[0])
+        #Subset effort data from the timestep after DBPM restart 
+        effort = effort.sel(time = slice(effort_time, None))
+        #Combine both data arrays
+        effort = xr.concat([e_start, effort], dim = 'time')
+        effort = effort.chunk({'lat': len(effort.lat), 'lon': len(effort.lon),
+                               'time': -1})
     
     #Creating a single dataset for all dynamic inputs
     ds_dynamic['effort'] = effort
@@ -101,29 +102,30 @@ if __name__ == '__main__':
     ## Running spatial DBPM ----
     for t in range(0, len(ds_dynamic.time)):
         ds_dyn = ds_dynamic.isel(time = t)
-        # Redistribute total effort across grid cells 
-        eff_short = uf.effort_calculation(
-            ds_init['predators'], ds_init['detritivores'], 
-            ds_dynamic['effort'].isel(time = t+1), ds_fixed['depth'], 
-            ds_fixed['log10_size_bins'], gridded_params)
-        # Saving predation mortality
-        # Getting year and month 
-        dt_eff = pd.to_datetime(eff_short.time.values).strftime('%Y-%m')
-        # Creating file name
-        fn = f'effort_{model_res}_{region}_{dt_eff}.nc'
-        eff_short.to_netcdf(os.path.join(out_folder, fn))
-        ds_dynamic['effort'] = xr.where(
-            ds_dynamic.time == ds_dynamic.time[t+1], eff_short.values, 
-            ds_dynamic['effort'])
-        #Remove variables not needed
-        del dt_eff, fn
-        # except:
-        #     dt = pd.to_datetime(ds_dyn.time.values).strftime('%Y-%m')
-        #     eff_short = xr.open_dataarray(glob(os.path.join(
-        #         out_folder, f'effort*{dt}*'))[0])
-        #     ds_dynamic['effort'] = xr.where(
-        #         ds_dynamic.time == ds_dynamic.time[t], eff_short.values, 
-        #         ds_dynamic['effort'])
+        try:
+            # Redistribute total effort across grid cells 
+            eff_short = uf.effort_calculation(
+                ds_init['predators'], ds_init['detritivores'], 
+                ds_dynamic['effort'].isel(time = t+1), ds_fixed['depth'], 
+                ds_fixed['log10_size_bins'], gridded_params)
+            # Saving predation mortality
+            # Getting year and month 
+            dt_eff = pd.to_datetime(eff_short.time.values).strftime('%Y-%m')
+            # Creating file name
+            fn = f'effort_{model_res}_{region}_{dt_eff}.nc'
+            eff_short.to_netcdf(os.path.join(out_folder, fn))
+            ds_dynamic['effort'] = xr.where(
+                ds_dynamic.time == ds_dynamic.time[t+1], eff_short.values, 
+                ds_dynamic['effort'])
+            #Remove variables not needed
+            del dt_eff, fn
+        except:
+            dt = pd.to_datetime(ds_dyn.time.values).strftime('%Y-%m')
+            eff_short = xr.open_dataarray(glob(os.path.join(
+                out_folder, f'effort*{dt}*'))[0])
+            ds_dynamic['effort'] = xr.where(
+                ds_dynamic.time == ds_dynamic.time[t], eff_short.values, 
+                ds_dynamic['effort'])
         
         ds_init = uf.gridded_sizemodel(
             gridded_params, ds_fixed, ds_init, ds_dyn, region = region, 
