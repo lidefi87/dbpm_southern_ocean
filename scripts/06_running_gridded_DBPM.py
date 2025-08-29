@@ -50,7 +50,7 @@ if __name__ == '__main__':
     ds_fixed['mask'] = np.isfinite(depth)
     #Size bins in log10
     log10_size_bins_mat = xr.open_zarr(
-        'outputs/log10_size_bins_matrix.zarr/')['size_bins']
+        '../outputs/log10_size_bins_matrix.zarr/')['size_bins']
     ds_fixed['log10_size_bins'] = log10_size_bins_mat
     ds_fixed['size_bin_vals'] = 10**log10_size_bins_mat
     #Removing datarrays added to fixed inputs

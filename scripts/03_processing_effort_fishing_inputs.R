@@ -181,7 +181,7 @@ forcing_file |>
         panel.grid.minor = element_blank()) 
 
 #Saving result that matches previous work
-ggsave(paste0("new_workflow/outputs/effort_fao-", fao_region, ".pdf"), 
+ggsave(paste0("outputs/effort_fao-", fao_region, ".pdf"), 
        device = "pdf", dpi = 300)
 
 
