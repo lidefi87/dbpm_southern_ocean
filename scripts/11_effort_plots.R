@@ -75,7 +75,8 @@ ggplot()+
   filter(res == "catch_nonspat") |> 
   select(year, vals, source, obs) |> 
   left_join(new_run, by = "year") |> 
-  pivot_longer(c(vals, new_effort_run), names_to = "run", values_to = "catch") |> 
+  pivot_longer(c(vals, new_effort_run), names_to = "run", 
+               values_to = "catch") |> 
   ggplot()+
   geom_line(aes(year, catch, color = run))+
   geom_point(aes(year, obs, color = source))
@@ -120,19 +121,22 @@ fout <- file.path(base_dir, "gridded_dbpm_outputs",
 
 ggsave(fout, device = "png")
 
-fao48_noleg <- fao48+theme(legend.position = "none", axis.title.y = element_blank())
-fao58_noleg <- fao58+theme(legend.position = "none", axis.title.y = element_blank())
+fao48_noleg <- fao48+theme(legend.position = "none",
+                           axis.title.y = element_blank())
+fao58_noleg <- fao58+theme(legend.position = "none",
+                           axis.title.y = element_blank())
 fao88_noleg <- fao88+theme(legend.position = "none", 
                            axis.title.y = element_blank())+
   scale_y_continuous(labels = scales::scientific)
 
-ytitle <- textGrob(~paste("Total annual fishing effort (kW*days*", km^-2, ")"), rot = 90)
+ytitle <- textGrob(~paste("Total annual fishing effort (kW*days*", km^-2, ")"),
+                   rot = 90)
 
 
 fig <- grid.arrange(arrangeGrob(plot_grid(plot_grid(fao48_noleg, fao58_noleg, 
                                                     ncol = 2), 
-                                          plot_grid(fao88_noleg, leg), nrow = 2),
-                                left = ytitle))
+                                          plot_grid(fao88_noleg, leg), 
+                                          nrow = 2), left = ytitle))
 
 ggsave("composite_fig_effort_ccamlr-novaglio.png", fig)
 
@@ -140,72 +144,5 @@ ggsave("composite_fig_effort_ccamlr-novaglio.png", fig)
 
 
 
-x <- catch_dbpm_obs |>
-  ggplot()+
-  geom_ribbon(aes(x = year, ymin = min_catch_density, ymax = max_catch_density),
-              fill = "#f1eef6")+
-  geom_line(aes(year, obs, color = source), linetype = "dashed")+
-  geom_point(aes(year, obs, color = source, shape = source), size = 0.2)+
-  scale_color_manual(values = c("#045a8d", "#2b8cbe", "#74a9cf"),
-                     labels = c("CCAMLR", "Pauly & Zeller", "Watson & Tidd"))+
-  scale_shape_discrete(labels = c("CCAMLR", "Pauly & Zeller", "Watson & Tidd"))+
-  scale_x_continuous(breaks = as.integer(seq(1960, 2010, by = 10)))+
-  ylab(~paste("Mean annual catch per unit area (g*", m^-2, ")"))+
-  labs(subtitle = paste0(str_to_title(reg_name_plot), " (", 
-                         str_replace_all(str_to_upper(reg), "-", " "), ")"))+
-  guides(color = guide_legend(title = "Observed catches"))+
-  guides(shape = guide_legend(title = "Observed catches"))+
-  theme_bw()+
-  theme(panel.grid.minor = element_blank(), axis.title.x = element_blank(), 
-        axis.title.y = element_text(family = "sans", size = 14),
-        axis.text = element_text(family = "sans", size = 12),
-        legend.title = element_text(face = "bold"), 
-        legend.byrow = T, legend.position = "right",
-        legend.text = element_text(family = "sans", size = 12), 
-        plot.margin = margin(5, 15, 5, 5, "pt"),
-        plot.subtitle = element_text(family = "sans", size = 12, hjust = 0.5))
-
-leg_obs <- get_legend(x)
-
-y <- catch_dbpm_obs |>
-  ggplot()+
-  geom_ribbon(aes(x = year, ymin = min_catch_density, ymax = max_catch_density),
-              fill = "#f1eef6")+
-  geom_line(aes(year, vals, color = res), linewidth = 0.9)+
-  geom_point(aes(year, vals, color = res, shape = res), size = 1.5)+
-  scale_color_manual(values = c("#d7301f", "#fc8d59", "#fdcc8a"),
-                     labels = c("DBPM 0.25°", "DBPM 1°", "DBPM non-spatial"))+
-  scale_shape_discrete(labels = c("DBPM 0.25°", "DBPM 1°", "DBPM non-spatial"))+
-  scale_x_continuous(breaks = as.integer(seq(1960, 2010, by = 10)))+
-  ylab(~paste("Mean annual catch per unit area (g*", m^-2, ")"))+
-  labs(subtitle = paste0(str_to_title(reg_name_plot), " (", 
-                         str_replace_all(str_to_upper(reg), "-", " "), ")"))+
-  guides(color = guide_legend(title = "Estimated catches"))+
-  guides(shape = guide_legend(title = "Estimated catches"))+
-  theme_bw()+
-  theme(panel.grid.minor = element_blank(), axis.title.x = element_blank(), 
-        axis.title.y = element_text(family = "sans", size = 14),
-        axis.text = element_text(family = "sans", size = 12),
-        legend.title = element_text(face = "bold"), 
-        legend.byrow = T, legend.position = "right",
-        legend.text = element_text(family = "sans", size = 12), 
-        plot.margin = margin(5, 15, 5, 5, "pt"),
-        plot.subtitle = element_text(family = "sans", size = 12, hjust = 0.5))
-
-leg_est <- get_legend(y)
-
-fao48_noleg <- fao48+theme(legend.position = "none", axis.title.y = element_blank())
-fao58_noleg <- fao58+theme(legend.position = "none", axis.title.y = element_blank())
-fao88_noleg <- fao88+theme(legend.position = "none", axis.title.y = element_blank())
-
-ytitle <- textGrob(~paste("Mean annual catch per unit area (g*", m^-2, ")"),
-                   rot = 90)
-fig <- grid.arrange(arrangeGrob(plot_grid(plot_grid(fao48_noleg, fao58_noleg, ncol = 2), 
-          plot_grid(fao88_noleg, 
-                    plot_grid(leg_est, leg_obs, nrow = 2, align = "hv"), 
-                    ncol = 2), 
-          nrow = 2), left = ytitle))
-
-ggsave("composite_fig_catches_obs.png", fig)
 
 
