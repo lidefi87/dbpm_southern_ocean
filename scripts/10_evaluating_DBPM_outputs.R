@@ -35,7 +35,7 @@ get_catch_dbpm_obs <- function(base_dir){
     pivot_longer(cols = starts_with("catch"), names_to = "res", 
                  values_to = "vals")
   
-  catch_obs <- list.files(file.path(base_dir, "monthly_weighted/1deg"),
+  catch_obs <- list.files(file.path(base_dir, "xr."),
                           pattern = "^dbpm_clim", full.names = T) |> 
     read_parquet() |> 
     filter(year >= 1961) |> 
@@ -69,45 +69,44 @@ get_catch_dbpm_obs <- function(base_dir){
 
 
 # Loading data ------------------------------------------------------------
-name_reg <- "weddell"
-reg <- "fao-48"
+name_reg <- "east_antarctica"
+reg_name_plot <- "Indian sector"
+reg <- "fao-58"
 base_dir <- file.path("/g/data/vf71/la6889/dbpm_inputs", name_reg)
 
 
 # Plotting modelled vs observed catches  ----------------------------------
 catch_dbpm_obs <- get_catch_dbpm_obs(base_dir)
 
-catch_dbpm_obs |>
+fao58 <- catch_dbpm_obs |>
   ggplot()+
   geom_ribbon(aes(x = year, ymin = min_catch_density, ymax = max_catch_density),
               fill = "#f1eef6")+
   geom_line(aes(year, vals, color = res), linewidth = 0.9)+
-  geom_point(aes(year, vals, color = res, shape = res), size = 2)+
+  geom_point(aes(year, vals, color = res, shape = res), size = 1.5)+
   geom_line(aes(year, obs, color = source), linetype = "dashed")+
-  geom_point(aes(year, obs, color = source, shape = source), size = 0.1)+
+  geom_point(aes(year, obs, color = source, shape = source), size = 0.2)+
   scale_color_manual(values = c("#d7301f", "#fc8d59", "#fdcc8a", 
                                 "#045a8d", "#2b8cbe", "#74a9cf"),
                      labels = c("DBPM 0.25°", "DBPM 1°", "DBPM non-spatial",
-                                  "CCAMLR", "Pauly & Zeller", "Watson et al"))+
+                                  "CCAMLR", "Pauly & Zeller", "Watson & Tidd"))+
   scale_shape_discrete(labels = c("DBPM 0.25°", "DBPM 1°", "DBPM non-spatial",
-                                  "CCAMLR", "Pauly & Zeller", "Watson et al"))+
+                                  "CCAMLR", "Pauly & Zeller", "Watson & Tidd"))+
   scale_x_continuous(breaks = as.integer(seq(1960, 2010, by = 10)))+
   ylab(~paste("Mean annual catch per unit area (g*", m^-2, ")"))+
   # ylab(expression(atop("Mean annual catch per unit area", 
   #                      ~paste("(g*", m^-2, ")"))))+
-  labs(subtitle = paste0(str_to_title(str_replace_all(name_reg, "_", " ")),
-                         " (", str_replace_all(str_to_upper(reg), "-", " "), 
-                         ")"))+
+  labs(subtitle = paste0(str_to_title(reg_name_plot), " (", 
+                         str_replace_all(str_to_upper(reg), "-", " "), ")"))+
   theme_bw()+
   theme(panel.grid.minor = element_blank(), axis.title.x = element_blank(), 
         axis.title.y = element_text(family = "sans", size = 14),
         axis.text = element_text(family = "sans", size = 12),
-        # legend.position = "inside", legend.position.inside = c(0.15, 0.825), 
         legend.title = element_blank(), 
         legend.byrow = T, legend.direction = "horizontal", 
         legend.position = "bottom",
         legend.text = element_text(family = "sans", size = 12), 
-        plot.margin = margin(c(5, 15, 5, 5), "cm"),
+        plot.margin = margin(5, 15, 5, 5, "pt"),
         plot.subtitle = element_text(family = "sans", size = 12, hjust = 0.5))
 
 fout <- file.path(base_dir, "gridded_dbpm_outputs", 
