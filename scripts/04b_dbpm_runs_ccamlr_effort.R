@@ -109,7 +109,7 @@ non_spatial_run <- run_model(fishing_params, dbpm_inputs)
 # Save results
 non_spatial_run |>
   write_parquet(file.path(dbpm_out_folder,
-                          paste0("dbpm_nonspatial_ccamlr_effort_",region_int,
+                          paste0("dbpm_nonspatial_ccamlr_effort_", region_int,
                                  "_1841-2010.parquet")))
 
 
@@ -151,62 +151,6 @@ catch_all <- catch_dbpm_ccamlr |>
   full_join(catch_obs, by = "year") |> 
   pivot_longer(cols = starts_with("effort_"), names_to = "source", 
                names_prefix = "effort_", values_to = "vals")
-
-
-# Plots comparing catch estimates -----------------------------------------
-# Define variables for region of interest
-region_int <- "fao-88"
-region_name <- "west_antarctica"
-reg_name_plot <- "Pacific Sector"
-  
-catch_all_reg <- read_parquet(
-  "data/catch_comp_ccamlr_novaglio_all_regions.parquet") |> 
-  mutate(min_catch_density = ifelse(is.infinite(min_catch_density), NA,
-                                    min_catch_density),
-         max_catch_density = ifelse(is.infinite(max_catch_density), NA,
-                                    max_catch_density)) |> 
-  group_by(region) |> 
-  group_split()
-
-catch_88 <- catch_all_reg[[3]] |> 
-  ggplot(aes(x = year))+
-  geom_ribbon(aes(ymin = min_catch_density, ymax = max_catch_density), 
-              fill = "#e3dded")+
-  geom_line(aes(y = vals, linetype = source), color = "#fdcc8a", 
-            linewidth = 0.9)+
-  labs(linetype = "Fishing effort source", 
-       y = ~paste("Mean annual catch per unit area (g*", m^-2, ")"),
-       subtitle = paste0(str_to_title(reg_name_plot), " (", 
-                         str_replace_all(str_to_upper(region_int), "-", " "),
-                         ")"))+
-  theme_bw()+
-  theme(axis.title.x = element_blank(), panel.grid.minor = element_blank(),
-        axis.title.y = element_text(family = "sans", size = 14),
-        axis.text = element_text(family = "sans", size = 12),
-        legend.title = element_text(face = "bold", size = 12),
-        legend.text = element_text(family = "sans", size = 12),
-        plot.subtitle = element_text(family = "sans", size = 12, hjust = 0.5))+
-  theme(legend.position = "none", axis.title.y = element_blank())
-
-leg <- get_legend(catch_48)
-
-catch_48 <- catch_48+
-  theme(legend.position = "none", axis.title.y = element_blank())
-
-ytitle <- textGrob(~paste("Mean annual catch per unit area (g*", m^-2, ")"),
-                   rot = 90)
-
-fig <- grid.arrange(arrangeGrob(plot_grid(plot_grid(catch_48, catch_58, 
-                                                    ncol = 2), 
-                                          plot_grid(catch_88, leg), nrow = 2),
-                                left = ytitle))
-
-# legend.byrow = T, legend.direction = "horizontal", 
-# legend.position = "bottom",
-# 
-# plot.margin = margin(5, 15, 5, 5, "pt"),
-
-
 
 
 
