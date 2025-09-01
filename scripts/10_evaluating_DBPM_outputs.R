@@ -35,7 +35,7 @@ get_catch_dbpm_obs <- function(base_dir){
     pivot_longer(cols = starts_with("catch"), names_to = "res", 
                  values_to = "vals")
   
-  catch_obs <- list.files(file.path(base_dir, "xr."),
+  catch_obs <- list.files(file.path(base_dir, "monthly_weighted/1deg"),
                           pattern = "^dbpm_clim", full.names = T) |> 
     read_parquet() |> 
     filter(year >= 1961) |> 
