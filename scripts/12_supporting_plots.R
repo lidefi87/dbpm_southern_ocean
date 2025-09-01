@@ -113,9 +113,6 @@ bio_data |>
 bio_data |> 
   write_parquet("outputs/mean_yr_tot_exploited_biomass_1841-2010.parquet")
 
-# Remove variables not needed
-# rm(exp_bio, fishing_params, params)
-
 
 # Non-spatial estimated catches -------------------------------------------
 catch_dbpm_nonspatial <- reg_name |> 
@@ -263,64 +260,128 @@ catch_ccamlr_data |>
 
 # Save results
 catch_ccamlr_data |> 
-  write_parquet("outputs/mean_yr_estimated_catches_1969-2010.parquet")
+  write_parquet("outputs/mean_yr_estimated_catches_ccamlr_1969-2010.parquet")
+
+
+# Comparing catch estimates from standardised vs CCAMLR effort ------------
+catch_both <- catch_ccamlr_data |> 
+  rename(ccamlr = mean_catch) |> 
+  left_join(catch_data |> 
+              rename(standardised = mean_catch)) |> 
+  mutate(catch_diff = standardised-ccamlr)
+
+catch_both |> 
+  select(!catch_diff) |> 
+  pivot_longer(c(ccamlr, standardised), names_to = "effort", 
+               values_to = "mean_vals") |> 
+  ggplot(aes(color = resolution, linetype = effort))+
+  geom_line(aes(year, mean_vals))+
+  scale_color_manual("DBPM resolution",
+                     values = c("#d7301f", "#fc8d59", "#fdcc8a"))+
+  scale_linetype_manual("Fishing effort source", values = c("dashed", "solid"), 
+                        labels = c("CCAMLR", "standard FishMIP"))+
+  facet_grid(region~., scales = "free")+
+  labs(y = ~paste("Mean catches per unit area (g ", m^-2, " ", year^-1, ")"))+
+  theme_bw()+
+  theme(strip.text = element_text(family = "sans", size = 12),
+        axis.text = element_text(family = "sans", size = 12), 
+        axis.title.x = element_blank(), legend.position = "top",
+        axis.title.y = element_text(family = "sans", size = 14, 
+                                    margin = margin(5, 5, 7.5, 5, unit = "pt")), 
+        legend.direction = "horizontal", legend.title.position = "top",
+        legend.title = element_text(family = "sans", face = "bold", 
+                                    hjust = 0.5), 
+        legend.text = element_text(family = "sans", size = 12), 
+        panel.grid.minor = element_blank(), 
+        plot.margin = margin(0, 5, 5, 5, unit = "pt"), 
+        legend.margin = margin(5, 5, 0, 5, unit = "pt"))
+  
+ggsave("outputs/diff_eff_catch_estimates_comparison.tif")
+
+
+catch_both |> 
+  mutate(upper = ifelse(catch_diff > 0, catch_diff, 0),
+         lower = ifelse(catch_diff < 0, catch_diff, 0)) |> 
+  ggplot(aes(year, catch_diff))+
+  geom_ribbon(aes(ymin = 0, ymax = catch_diff), fill = "#7fbf7b")+
+  geom_ribbon(aes(ymin = 0, ymax = upper), fill = "#af8dc3")+
+  geom_hline(yintercept = 0, linewidth = 0.5, color = "#5b5b5b")+
+  geom_line()+
+  labs(y = ~paste("Mean catches per unit area (g ", m^-2, " ", year^-1, ")"))+
+  facet_grid(region~resolution, scales = "free")+
+  theme_bw()+
+  theme(panel.grid.minor = element_blank(), axis.title.x = element_blank())
+
+ggsave("outputs/anom_stand-ccamlr_eff_catch_estimates_comparison.tif")
+
+
+# Comparing estimated vs observed catches ---------------------------------
+# Loading observed catches
+obs_catch <- reg_name |> 
+  map(\(x) list.files(file.path(base_folder, x, "monthly_weighted/1deg"),
+                      "dbpm_clim-fish", full.names = T)) |> 
+  map(\(x) read_parquet(x)) |> 
+  bind_rows() |> 
+  filter(year >= 1961) |> 
+  group_by(year, region) |> 
+  summarise(min_catch_density = mean(min_catch_density)*1e6,
+            max_catch_density = mean(max_catch_density)*1e6)
+
+# Calculating differences between observed and estimated catches
+obs_est_catch <- catch_data |> 
+  filter(year >= 1961) |> 
+  left_join(obs_catch, by = c("year", "region")) |> 
+  ungroup() |> 
+  mutate(pseudo = case_when(mean_catch < min_catch_density ~ min_catch_density,
+                            mean_catch > max_catch_density ~ max_catch_density,
+                            .default = mean_catch),
+         diff = mean_catch-pseudo)
+  
+obs_est_catch |> 
+  mutate(upper = ifelse(diff > 0, diff, 0),
+         lower = ifelse(diff < 0, diff, 0)) |> 
+  ggplot(aes(year, diff))+
+  geom_ribbon(aes(ymin = 0, ymax = diff), fill = "#7fbf7b")+
+  geom_ribbon(aes(ymin = 0, ymax = upper), fill = "#af8dc3")+
+  geom_line()+
+  geom_hline(yintercept = 0, linewidth = 0.5, color = "#5b5b5b")+
+  labs(y = ~paste("Mean catches per unit area (g ", m^-2, " ", year^-1, ")"))+
+  facet_grid(region~resolution, scales = "free")+
+  theme_bw()+
+  theme(panel.grid.minor = element_blank(), axis.title.x = element_blank())
+
+ggsave("outputs/estimated-obs_catches_comparison.tif")
 
 
 
 
 
 
-# Plots comparing catch estimates -----------------------------------------
+# Catches adjusted - sea ice covered areas removed ------------------------
+x <- read_parquet("mean_year_catch_dbpm_1deg_fao-58_1961_2010.parquet", 
+                  col_select = !units) |> 
+  mutate(region = "FAO 58", resolution = "1deg", .after = year) |> 
+  mutate(adjusted = "yes")
+  
+catch_data |> 
+  filter(region == "FAO 58" & year >= 1961 & resolution != "025deg") |> 
+  mutate(adjusted = "no") |> 
+  bind_rows(x) |> 
+  left_join(obs_catch, by = c("year", "region")) |> 
+  ggplot()+
+  geom_ribbon(aes(year, ymin = min_catch_density, ymax = max_catch_density),
+              fill = "green", alpha = 0.5)+
+  geom_line(aes(year, mean_catch, color = resolution, linetype = adjusted))+
+  
+  theme_bw()
+
+ggsave("outputs/catches_1deg_non_spat_SIC_nonSIC.png")
+
+# Plots comparing inputs used to run DBPM ---------------------------------
 # Define variables for region of interest
 region_int <- "fao-88"
 region_name <- "west_antarctica"
 reg_name_plot <- "Pacific Sector"
-
-catch_all_reg <- read_parquet(
-  "data/catch_comp_ccamlr_novaglio_all_regions.parquet") |> 
-  mutate(min_catch_density = ifelse(is.infinite(min_catch_density), NA,
-                                    min_catch_density),
-         max_catch_density = ifelse(is.infinite(max_catch_density), NA,
-                                    max_catch_density)) |> 
-  group_by(region) |> 
-  group_split()
-
-catch_88 <- catch_all_reg[[3]] |> 
-  ggplot(aes(x = year))+
-  geom_ribbon(aes(ymin = min_catch_density, ymax = max_catch_density), 
-              fill = "#e3dded")+
-  geom_line(aes(y = vals, linetype = source), color = "#fdcc8a", 
-            linewidth = 0.9)+
-  labs(linetype = "Fishing effort source", 
-       y = ~paste("Mean annual catch per unit area (g*", m^-2, ")"),
-       subtitle = paste0(str_to_title(reg_name_plot), " (", 
-                         str_replace_all(str_to_upper(region_int), "-", " "),
-                         ")"))+
-  theme_bw()+
-  theme(axis.title.x = element_blank(), panel.grid.minor = element_blank(),
-        axis.title.y = element_text(family = "sans", size = 14),
-        axis.text = element_text(family = "sans", size = 12),
-        legend.title = element_text(face = "bold", size = 12),
-        legend.text = element_text(family = "sans", size = 12),
-        plot.subtitle = element_text(family = "sans", size = 12, hjust = 0.5))+
-  theme(legend.position = "none", axis.title.y = element_blank())
-
-leg <- get_legend(catch_48)
-
-catch_48 <- catch_48+
-  theme(legend.position = "none", axis.title.y = element_blank())
-
-ytitle <- textGrob(~paste("Mean annual catch per unit area (g*", m^-2, ")"),
-                   rot = 90)
-
-fig <- grid.arrange(arrangeGrob(plot_grid(plot_grid(catch_48, catch_58, 
-                                                    ncol = 2), 
-                                          plot_grid(catch_88, leg), nrow = 2),
-                                left = ytitle))
-
-
-
-
 
 base_dir <- "/g/data/vf71/la6889/dbpm_inputs"
 reg_name <- list.files(base_dir, pattern = "^(e|w)")
