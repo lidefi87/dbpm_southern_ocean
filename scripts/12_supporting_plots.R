@@ -17,8 +17,8 @@ exp_bio_data <- data.frame()
 base_folder <- "/g/data/vf71/la6889/dbpm_inputs"
 
 # Define variables identifying regions
-region_int <- "fao-48"
-region_name <- "weddell"
+region_int <- "fao-58"
+region_name <- "east_antarctica"
 
 # Define location of non-spatial results
 results_folder <- file.path(base_folder, region_name, "fishing_params", 
@@ -39,7 +39,7 @@ params <- read_json(file.path(results_folder,
 fishing_params <- read_parquet(
   file.path(results_folder, 
             paste0("best-fishing-parameters_", region_int, 
-                   "_searchvol_estimated_numb-iter_1000.parquet"))) |> 
+                   "_searchvol_estimated_numb-iter_500.parquet"))) |> 
   arrange(rmse) |> 
   slice(1)
 
@@ -68,6 +68,9 @@ exp_bio <- data.frame(year = dbpm_inputs$year, region = fishing_params$region,
 # Merging data per region into main data frame
 exp_bio_data <- exp_bio_data |> 
   bind_rows(exp_bio)
+
+exp_bio_data |> 
+  write_parquet("outputs/mean_expl_biomass_non-spat_1841-2010.parquet")
 
 rm(region_int, region_name, results_folder, dbpm_inputs)
 
@@ -105,13 +108,75 @@ bio_data <- exp_bio_data |>
   
 # Plot exploited biomass
 bio_data |> 
-  ggplot(aes(year, mean_expl_bio, color = region, linetype = resolution))+
-  geom_line()+
-  theme_bw()
+  filter(year >= 1961) |> 
+  ggplot(aes(year, mean_expl_bio, color = resolution))+
+  geom_line(aes(size = resolution))+
+  scale_size_manual("DBPM resolution", values = c(1.6, 0.8, 0.4))+
+  geom_point(aes(shape = resolution))+
+  scale_color_manual("DBPM resolution", 
+                     values = c("#d7301f", "#fc8d59", "#fdcc8a"))+
+  guides(shape = guide_legend(title = "DBPM resolution"))+
+  facet_grid(region~., scales = "free")+
+  theme_bw()+
+  labs(y = ~paste("Exploitable biomass (g ", m^-2, " ", year^-1, ")"))+
+  theme(strip.text = element_text(family = "sans", size = 12),
+        axis.text = element_text(family = "sans", size = 12), 
+        axis.title.x = element_blank(), legend.position = "top",
+        axis.title.y = element_text(family = "sans", size = 14, 
+                                    margin = margin(5, 5, 7.5, 5, unit = "pt")), 
+        legend.direction = "horizontal", legend.title.position = "top",
+        legend.title = element_text(family = "sans", face = "bold", 
+                                    hjust = 0.5), 
+        legend.text = element_text(family = "sans", size = 12), 
+        panel.grid.minor = element_blank(), 
+        plot.margin = margin(0, 5, 5, 5, unit = "pt"), 
+        legend.margin = margin(5, 5, 0, 5, unit = "pt"))
 
+ggsave("outputs/tot_exploitable_biomass_yr_1961-2010.png")
+
+  
 # Save results
 bio_data |> 
   write_parquet("outputs/mean_yr_tot_exploited_biomass_1841-2010.parquet")
+
+
+rel_fp |> 
+  write_parquet("outputs/catch_expl-bio_fishing-pressure_1961-2010.parquet")
+
+rel_fp |> 
+  ggplot(aes(color = resolution))+
+  geom_line(aes(year, rel_expl_bio))+
+  geom_line(aes(year, rel_catch), linetype = "dashed")+
+  facet_grid(region~.)+
+  theme_bw()
+ggsave("rel_catches_expl-bio_1961-2010.png")
+
+
+rel_fp |> 
+  filter(region == "FAO 58") |> 
+  ggplot()+
+  geom_point(aes(fp, rel_expl_bio), color = "#33a02c")+
+  geom_smooth(aes(fp, rel_expl_bio), alpha = 0.25, fill = "#33a02c", 
+              color = "#33a02c")+
+  geom_point(aes(fp, rel_catch), shape = 8, color = "#1f78b4")+
+  geom_smooth(aes(fp, rel_catch), alpha = 0.25, fill = "#1f78b4",
+              color = "#1f78b4")+
+  facet_grid(~resolution)+
+  theme_bw()+
+  labs(subtitle = "FAO 58")
+
+ggsave("rel_catches_expl-bio_fao-58_1961-2010.png")
+
+rel_fp |> 
+  filter(region == "FAO 88") |> 
+  mutate(bins = cut(fp, breaks = 10)) |> 
+  group_by(bins, resolution) |> 
+  summarise(across(c(fp, rel_expl_bio, rel_catch),
+                   list(mean = ~mean(.x, na.rm = T)))) |> 
+  ggplot(aes(color = resolution))+
+  geom_line(aes(fp_mean, rel_expl_bio_mean))+
+  geom_line(aes(fp_mean, rel_catch_mean), linetype = "dotted")
+
 
 
 # Non-spatial estimated catches -------------------------------------------
@@ -146,7 +211,6 @@ for(cf in catch_files){
 }
 
 # Merge exploited biomass for gridded and non-gridded DBPM
-# bio_data <- 
 catch_data <- catch_dbpm_nonspatial |> 
   bind_rows(catch_data)
 
@@ -214,7 +278,6 @@ fishing_pressure |>
         legend.margin = margin(5, 5, 0, 5, unit = "pt"))
   
 ggsave("outputs/fishing_pressure_1961-2010.png")
-
 
 
 # Loading estimated catches forced with CCAMLR effort ---------------------
