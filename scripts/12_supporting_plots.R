@@ -140,43 +140,34 @@ bio_data |>
   write_parquet("outputs/mean_yr_tot_exploited_biomass_1841-2010.parquet")
 
 
-rel_fp |> 
-  write_parquet("outputs/catch_expl-bio_fishing-pressure_1961-2010.parquet")
+
+# Exploited biomass vs catches --------------------------------------------
+rel_fp <- read_parquet(
+  "outputs/catch_expl-bio_fishing-pressure_1961-2010.parquet")
 
 rel_fp |> 
-  ggplot(aes(color = resolution))+
-  geom_line(aes(year, rel_expl_bio))+
-  geom_line(aes(year, rel_catch), linetype = "dashed")+
+  select(year:resolution, starts_with("rel_")) |>
+  pivot_longer(starts_with("rel_"), names_to = "data", values_to = "vals") |> 
+  ggplot(aes(color = resolution, linetype = data))+
+  geom_line(aes(year, vals))+
+  scale_color_manual("DBPM resolution",
+                     values = c("#d7301f", "#fc8d59", "#fdcc8a"))+
+  scale_linetype_manual("", values = c(2, 1), 
+                        labels = c("Catches", "Exploitable biomass"))+
   facet_grid(region~.)+
-  theme_bw()
-ggsave("rel_catches_expl-bio_1961-2010.png")
-
-
-rel_fp |> 
-  filter(region == "FAO 58") |> 
-  ggplot()+
-  geom_point(aes(fp, rel_expl_bio), color = "#33a02c")+
-  geom_smooth(aes(fp, rel_expl_bio), alpha = 0.25, fill = "#33a02c", 
-              color = "#33a02c")+
-  geom_point(aes(fp, rel_catch), shape = 8, color = "#1f78b4")+
-  geom_smooth(aes(fp, rel_catch), alpha = 0.25, fill = "#1f78b4",
-              color = "#1f78b4")+
-  facet_grid(~resolution)+
   theme_bw()+
-  labs(subtitle = "FAO 58")
+  theme(strip.text = element_text(family = "sans", size = 12),
+        axis.text = element_text(family = "sans", size = 12), 
+        axis.title = element_blank(), legend.position = "top",
+        legend.direction = "horizontal", legend.title.position = "top",
+        legend.title = element_text(family = "sans", face = "bold", 
+                                    hjust = 0.5), 
+        legend.text = element_text(family = "sans", size = 12), 
+        panel.grid.minor = element_blank(), 
+        plot.margin = margin(0, 5, 5, 5, unit = "pt"), 
+        legend.margin = margin(5, 5, 0, 5, unit = "pt"))
 
-ggsave("rel_catches_expl-bio_fao-58_1961-2010.png")
-
-rel_fp |> 
-  filter(region == "FAO 88") |> 
-  mutate(bins = cut(fp, breaks = 10)) |> 
-  group_by(bins, resolution) |> 
-  summarise(across(c(fp, rel_expl_bio, rel_catch),
-                   list(mean = ~mean(.x, na.rm = T)))) |> 
-  ggplot(aes(color = resolution))+
-  geom_line(aes(fp_mean, rel_expl_bio_mean))+
-  geom_line(aes(fp_mean, rel_catch_mean), linetype = "dotted")
-
+ggsave("outputs/rel_catches_expl-bio_1961-2010.tif")
 
 
 # Non-spatial estimated catches -------------------------------------------
