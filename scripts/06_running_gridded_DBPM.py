@@ -30,7 +30,7 @@ if __name__ == '__main__':
     ## Defining input and output folders ----
     base_folder = '/g/data/vf71/la6889/dbpm_inputs/weddell/'
     gridded_folder = os.path.join(base_folder, 'gridded_params', model_res)
-    out_folder = os.path.join(base_folder, 'run_fishing', model_res)
+    out_folder = os.path.join(base_folder, 'run_fishing_seaicemask', model_res)
     #If output folder does not exist, it will create it
     os.makedirs(out_folder, exist_ok = True) 
 
@@ -120,7 +120,8 @@ if __name__ == '__main__':
             eff_short = uf.effort_calculation(
                 ds_init['predators'], ds_init['detritivores'], 
                 ds_dynamic['effort'].isel(time = t+1), ds_fixed['depth'], 
-                ds_fixed['log10_size_bins'], gridded_params)
+                ds_fixed['log10_size_bins'], gridded_params,
+                ds_dynamic['sea_ice_mask'].isel(time = t+1))
             # Saving predation mortality
             # Getting year and month 
             dt_eff = pd.to_datetime(eff_short.time.values[0]).strftime('%Y-%m')

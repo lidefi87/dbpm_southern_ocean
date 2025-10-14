@@ -447,7 +447,7 @@ def init_da(log10_size_bins, time):
 # Redistribute total effort across grid cells according to proportion of biomass in that 
 # grid cell using graivity model, Walters & Bonfil, 1999, Gelchu & Pauly 2007 ideal free
 # distribution - Blanchard et al 2008
-def gravitymodel(effort, prop_b, depth, n_iter):
+def gravitymodel(effort, prop_b, depth, n_iter, sea_ice_mask):
     '''
     Inputs:
     - effort (Data array) Fishing effort for a single time step
@@ -455,9 +455,11 @@ def gravitymodel(effort, prop_b, depth, n_iter):
     single time step
     - depth (Data array) Bathymetry of the area of interest
     - n_iter (integer) Number of iterations needed to redistribute fishing effort
+    - sea_ice_mask (Data array) Mask describing sea ice covered areas inaccessible to 
+    fishers
     
     Outputs:
-    eff (data array) Containing redistributed fishing effort
+    eff (Data array) Containing redistributed fishing effort
     '''
 
     eff = effort
@@ -466,7 +468,7 @@ def gravitymodel(effort, prop_b, depth, n_iter):
     #Initialise loop
     i = 1
     while(i <= n_iter):
-        suit = prop_b*d
+        suit = prop_b*d*sea_ice_mask
         rel_suit = suit/(suit.sum())
         neweffort = eff+(rel_suit*eff)
         mult = (eff.sum())/(neweffort.sum())
@@ -478,7 +480,7 @@ def gravitymodel(effort, prop_b, depth, n_iter):
 
 # Calculate fishing mortality and effort ------
 def effort_calculation(predators, detritivores, effort, depth, size_bin_vals, 
-                       gridded_params):
+                       gridded_params, sea_ice_mask):
     '''
     Inputs:
     - predators (2D data array) Pelagic predator biomass
@@ -487,6 +489,8 @@ def effort_calculation(predators, detritivores, effort, depth, size_bin_vals,
     - depth (2D data array) Bathymetry of the area of interest
     - size_bins_vals (1D data array) Size classes in grams
     - gridded_params (dictionary) DBPM parameters
+    - sea_ice_mask (Data array) Mask describing sea ice covered areas inaccessible
+    to fishers
 
     Outputs:
     - new_effort (2D data array) Fishing effort calculated for next time step
@@ -505,7 +509,7 @@ def effort_calculation(predators, detritivores, effort, depth, size_bin_vals,
         prop_b = sum_bio/sum_bio.sum()
     
         #Calculate new effort
-        new_effort = gravitymodel(effort, prop_b, depth, 1)
+        new_effort = gravitymodel(effort, prop_b, depth, 1, sea_ice_mask)
     else:
         new_effort = effort
     
@@ -676,6 +680,8 @@ def loading_dbpm_dynamic_inputs(gridded_esm, gridded_calc, init_time = None,
         sinking_rate = xr.open_mfdataset(
             glob(os.path.join(gridded_esm, f'*_stable-spin_er{cap_search}_*')),
             engine = 'zarr')['export_ratio']
+        si_mask = xr.open_mfdataset(glob(os.path.join(
+            gridded_esm, f'*_stable-spin_simask{cap_search}_*')), engine = 'zarr')['siconc']
     elif init_yr >= 1841 and init_yr < 1959:
         ui0 = xr.open_mfdataset(glob(os.path.join(
             gridded_calc, f'ui0{cap_search}_spinup*')), engine = 'zarr')['ui0']
@@ -689,6 +695,8 @@ def loading_dbpm_dynamic_inputs(gridded_esm, gridded_calc, init_time = None,
         sinking_rate = xr.open_mfdataset(
             glob(os.path.join(gridded_esm, f'*_spinup_er{cap_search}_*')),
             engine = 'zarr')['export_ratio']
+        si_mask = xr.open_mfdataset(glob(os.path.join(
+            gridded_esm, f'*_spinup_simask{cap_search}_*')), engine = 'zarr')['siconc']
     #Spinup data plus obsclim are loaded if init_time is 1960
     elif init_yr >= 1959 and init_yr < 1961:
         exp = ['spinup', 'obsclim']
@@ -702,6 +710,8 @@ def loading_dbpm_dynamic_inputs(gridded_esm, gridded_calc, init_time = None,
             gridded_calc, 'ben-temp-eff_*')), engine = 'zarr')['ben_temp_eff']
         sinking_rate = xr.open_mfdataset([f for ex in exp for f in glob(os.path.join(
             gridded_esm, f'*{ex}_er{cap_search}_*'))], engine = 'zarr')['export_ratio']
+        si_mask = xr.open_mfdataset([f for ex in exp for f in glob(os.path.join(
+            gridded_esm, f'*{ex}_simask{cap_search}_*'))], engine = 'zarr')['siconc']
     else:
         ui0 = xr.open_mfdataset(glob(os.path.join(
             gridded_calc, f'ui0{cap_search}_[0-9]*')), engine = 'zarr')['ui0']
@@ -714,6 +724,8 @@ def loading_dbpm_dynamic_inputs(gridded_esm, gridded_calc, init_time = None,
         sinking_rate = xr.open_mfdataset(glob(os.path.join(
             gridded_esm, f'*_obsclim_er{cap_search}_*')),
                                          engine = 'zarr')['export_ratio']
+        si_mask = xr.open_mfdataset(glob(os.path.join(
+            gridded_esm, f'*_obsclim_simask{cap_search}_*')), engine = 'zarr')['siconc']
 
     #Subset data
     if init_time is not None:
@@ -727,7 +739,8 @@ def loading_dbpm_dynamic_inputs(gridded_esm, gridded_calc, init_time = None,
     ds_dynamic = xr.Dataset(data_vars = {'ui0': ui0, 'slope': slope,
                                          'pel_tempeffect': pel_tempeffect,
                                          'ben_tempeffect': ben_tempeffect, 
-                                         'sinking_rate': sinking_rate})
+                                         'sinking_rate': sinking_rate,
+                                         'sea_ice_mask': si_mask})
 
     return ds_dynamic
 
