@@ -40,10 +40,11 @@ def netcdf_to_zarr(file_path, path_out):
 
 
 ## Extracting GFDL outputs for region of interest using boolean mask
-def extract_gfdl(file_path, mask, path_out, cross_dateline = False):
+def extract_gfdl(file_path_or_data_array, mask, path_out, cross_dateline = False):
     '''
     Inputs:
-    - file_path (character) File path where GFDL zarr file is located
+    - file_path_or_data_array (character or Data Array) Provide either file path where GFDL 
+    zarr file is located or Data Array
     - mask (boolean data array) Grid cells within region of interest should be identified
     as 1.
     - path_out (character) File path where outputs should be stored as zarr files
@@ -55,7 +56,15 @@ def extract_gfdl(file_path, mask, path_out, cross_dateline = False):
     '''
 
     #Loading and rechunking data
-    da = xr.open_zarr(file_path)
+    if isinstance(file_path_or_data_array, str):
+        da = xr.open_zarr(file_path_or_data_array)
+        #Getting name of variable contained in dataset
+        [var] = list(da.keys())
+        da = da[var]
+    elif isinstance(file_path_or_data_array, xr.DataArray):
+        da = file_path_or_data_array
+    else:
+        print('Please provide either a file path or data array to run function.')
 
     #Fix time format if needed
     try:
@@ -63,10 +72,6 @@ def extract_gfdl(file_path, mask, path_out, cross_dateline = False):
         da['time'] = new_time
     except:
         pass
-
-    #Getting name of variable contained in dataset
-    [var] = list(da.keys())
-    da = da[var]
     
     #Apply mask and remove rows where all grid cells are empty to reduce data array size
     if cross_dateline:
@@ -667,22 +672,7 @@ def loading_dbpm_dynamic_inputs(gridded_esm, gridded_calc, init_time = None,
     else:
         cap_search = ''
     
-    if init_time is None or init_yr < 1841:
-        ui0 = xr.open_mfdataset(glob(os.path.join(
-            gridded_calc, f'ui0{cap_search}_stable-spin*')), engine = 'zarr')['ui0']
-        slope = xr.open_mfdataset(glob(os.path.join(
-            gridded_esm, f'*stable-spin_slope{cap_search}_*')), engine = 'zarr')['slope']
-        pel_tempeffect = xr.open_mfdataset(glob(
-            os.path.join(gridded_calc, 'pel-temp-eff_stable-spin*')), 
-                                           engine = 'zarr')['pel_temp_eff']
-        ben_tempeffect = xr.open_mfdataset(glob(os.path.join(
-            gridded_calc, 'ben-temp-eff_stable-spin*')), engine = 'zarr')['ben_temp_eff']
-        sinking_rate = xr.open_mfdataset(
-            glob(os.path.join(gridded_esm, f'*_stable-spin_er{cap_search}_*')),
-            engine = 'zarr')['export_ratio']
-        si_mask = xr.open_mfdataset(glob(os.path.join(
-            gridded_esm, f'*_stable-spin_simask{cap_search}_*')), engine = 'zarr')['siconc']
-    elif init_yr >= 1841 and init_yr < 1959:
+    if init_time is None or init_yr >= 1841 and init_yr < 1959:
         ui0 = xr.open_mfdataset(glob(os.path.join(
             gridded_calc, f'ui0{cap_search}_spinup*')), engine = 'zarr')['ui0']
         slope = xr.open_mfdataset(glob(os.path.join(
@@ -696,7 +686,7 @@ def loading_dbpm_dynamic_inputs(gridded_esm, gridded_calc, init_time = None,
             glob(os.path.join(gridded_esm, f'*_spinup_er{cap_search}_*')),
             engine = 'zarr')['export_ratio']
         si_mask = xr.open_mfdataset(glob(os.path.join(
-            gridded_esm, f'*_spinup_simask{cap_search}_*')), engine = 'zarr')['siconc']
+            gridded_esm, f'*_spinup_simask_*')), engine = 'zarr')['simask']
     #Spinup data plus obsclim are loaded if init_time is 1960
     elif init_yr >= 1959 and init_yr < 1961:
         exp = ['spinup', 'obsclim']
@@ -711,7 +701,7 @@ def loading_dbpm_dynamic_inputs(gridded_esm, gridded_calc, init_time = None,
         sinking_rate = xr.open_mfdataset([f for ex in exp for f in glob(os.path.join(
             gridded_esm, f'*{ex}_er{cap_search}_*'))], engine = 'zarr')['export_ratio']
         si_mask = xr.open_mfdataset([f for ex in exp for f in glob(os.path.join(
-            gridded_esm, f'*{ex}_simask{cap_search}_*'))], engine = 'zarr')['siconc']
+            gridded_esm, f'*{ex}_simask_*'))], engine = 'zarr')['simask']
     else:
         ui0 = xr.open_mfdataset(glob(os.path.join(
             gridded_calc, f'ui0{cap_search}_[0-9]*')), engine = 'zarr')['ui0']
@@ -725,7 +715,7 @@ def loading_dbpm_dynamic_inputs(gridded_esm, gridded_calc, init_time = None,
             gridded_esm, f'*_obsclim_er{cap_search}_*')),
                                          engine = 'zarr')['export_ratio']
         si_mask = xr.open_mfdataset(glob(os.path.join(
-            gridded_esm, f'*_obsclim_simask{cap_search}_*')), engine = 'zarr')['siconc']
+            gridded_esm, f'*_obsclim_simask_*')), engine = 'zarr')['simask']
 
     #Subset data
     if init_time is not None:
