@@ -19,6 +19,7 @@ This repository contains all code necessary to process inputs used by DBPM. This
     - Checks and adjusts the `search volume` parameter  
     - Creates and saves calibration plots in PDF format  
 Plots created in this script can be used to visually inspect the fit of predicted catches against observed (reconstructed) catch data.
+- Script [`04b_dbpm_runs_ccamlr_effort`](scripts/04b_dbpm_runs_ccamlr_effort.R) calculates fishing mortality parameters for DBPM runs using regional effort obtained from CCAMLR.
 
 ## Step 5. Setting up gridded inputs for spatial DBPM
 - Script [`05_setup_gridded_DBPM.ipynb`](scripts/05_setup_gridded_DBPM.ipynb) processes all inputs necessary to run the spatial DBPM for the area and time period of interest.
@@ -46,6 +47,7 @@ Plots created in this script can be used to visually inspect the fit of predicte
 ## Step 12. Plots for publication
 - Script [`12_supporting_plots`](scripts/12_supporting_plots) produces plots to support contents of manuscript describing exploration on DBPM outputs within the Southern Ocean.  
 
+The `useful_functions` scripts in Python and R contain functions that have been developed to run DBPM.
   
 # Running this repository
 The scripts in this repository were developed in NCI's Gadi, so the easiest way to run these script is to clone this repository to Gadi. However, before you can do this, you will need an NCI account, which are only available for researchers with an email address from an Australian institution. Further down in this document, we include information about how to create an NCI account if you do not have one already. Remember, you must have an email address for an Australian institution to create an NCI account.  
