@@ -289,6 +289,7 @@ def gridded_spinup(file_path, start_spin, end_spin, spinup_period,
     '''
     
     #Loading data
+    
     da = xr.open_zarr(file_path)
     #Getting name of variable contained in dataset
     [var] = list(da.keys())
@@ -725,6 +726,7 @@ def loading_dbpm_dynamic_inputs(gridded_esm, gridded_calc, init_time = None,
         pel_tempeffect = pel_tempeffect.sel(time = slice(subset_time, None))
         ben_tempeffect = ben_tempeffect.sel(time = slice(subset_time, None))
         sinking_rate = sinking_rate.sel(time = slice(subset_time, None))
+        si_mask = si_mask.sel(time = slice(subset_time, None))
 
     ds_dynamic = xr.Dataset(data_vars = {'ui0': ui0, 'slope': slope,
                                          'pel_tempeffect': pel_tempeffect,
