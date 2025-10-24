@@ -12,28 +12,43 @@ library(stringr)
 
 # Define function to load catches data ------------------------------------
 get_catch_dbpm_obs <- function(base_dir){
-  catch_dbpm_nonspatial <- list.files(file.path(base_dir, "run_nonspatial/1deg"), 
-                                      full.names = T) |> 
+  catch_dbpm_nonspatial <- list.files(
+    file.path(base_dir, "run_nonspatial/1deg"), full.names = T) |> 
     read_parquet() |> 
     select(c(time, year, total_catch)) |> 
     group_by(year) |> 
-    summarise(catch_nonspat = mean(total_catch, na.rm = T))
+    summarise(catch_calib_org = mean(total_catch, na.rm = T)) #|> 
+    # mutate(run = "original", res = "calibration")
   
-  catch_dbpm_1deg <- list.files(file.path(base_dir, "gridded_dbpm_outputs/1deg"),
-                                pattern = "mean_year_catch", full.names = T) |> 
+  catch_dbpm_1deg <- list.files(
+    file.path(base_dir, "gridded_dbpm_outputs/1deg"), 
+    pattern = "mean_year_catch_dbpm_1", full.names = T) |> 
     read_parquet(col_select = !units) |> 
-    rename(catch_1 = mean_catch)
+    rename(catch_1_org = mean_catch) #|>
+    # mutate(run = "original", res = "1deg")
   
-  catch_dbpm <- list.files(file.path(base_dir, 
-                                     "gridded_dbpm_outputs/025deg"),
-                           pattern = "mean_year_catch", full.names = T) |> 
-    read_parquet() |> 
-    rename(catch_025 = mean_catch) |> 
-    left_join(catch_dbpm_1deg, by = "year") |> 
-    left_join(catch_dbpm_nonspatial, by = "year") |> 
+  catch_si_dbpm_1deg <- list.files(
+    file.path(base_dir, "gridded_dbpm_outputs/1deg"),
+    pattern = "mean_year_catch_dbpm_simask", full.names = T) |> 
+    read_parquet(col_select = !units) |> 
+    rename(catch_1_si = mean_catch) #|>
+    # mutate(run = "simask", res = "1deg")
+  
+  catch_dbpm <- list.files(
+    file.path(base_dir, "gridded_dbpm_outputs/025deg"),
+    pattern = "mean_year_catch_dbpm_025", full.names = T) |> 
+    read_parquet(col_select = !units) |> 
+    rename(catch_025_org = mean_catch) |>
+    # mutate(run = "original", res = "025deg") |> 
+    # bind_rows(catch_dbpm_1deg, catch_si_dbpm_1deg, catch_dbpm_nonspatial) |> 
+    left_join(catch_dbpm_1deg, by = "year") |>
+    left_join(catch_si_dbpm_1deg, by = "year") |>
+    left_join(catch_dbpm_nonspatial, by = "year") |>
     filter(year >= 1961) |> 
-    pivot_longer(cols = starts_with("catch"), names_to = "res", 
+    pivot_longer(cols = starts_with("catch"), names_to = c("res", "run"), 
+                 names_prefix = "catch_", names_pattern = "(.*)_(.*)", 
                  values_to = "vals")
+    
   
   catch_obs <- list.files(file.path(base_dir, "monthly_weighted/1deg"),
                           pattern = "^dbpm_clim", full.names = T) |> 
@@ -54,9 +69,10 @@ get_catch_dbpm_obs <- function(base_dir){
            max_catch_density = case_when(is.infinite(max_catch_density) ~ NA, 
                                          T ~ max_catch_density))
   
-  catch_dbpm <- catch_dbpm |> 
-    bind_cols(catch_obs |> 
-                select(!year)) |> 
+  catch_dbpm <- catch_dbpm |>
+    left_join(catch_obs, by = "year") |> 
+    # bind_cols(catch_obs |> 
+    #             select(!year)) |> 
     #Calculating pseudo observations
     mutate(pseudo = case_when(vals < min_catch_density ~ min_catch_density,
                               vals > max_catch_density ~ max_catch_density,
@@ -69,29 +85,32 @@ get_catch_dbpm_obs <- function(base_dir){
 
 
 # Loading data ------------------------------------------------------------
-name_reg <- "east_antarctica"
-reg_name_plot <- "Indian sector"
-reg <- "fao-58"
+name_reg <- "west_antarctica"
+reg_name_plot <- "Atlantic sector"
+reg <- "fao-88"
 base_dir <- file.path("/g/data/vf71/la6889/dbpm_inputs", name_reg)
 
 
 # Plotting modelled vs observed catches  ----------------------------------
 catch_dbpm_obs <- get_catch_dbpm_obs(base_dir)
 
-fao58 <- catch_dbpm_obs |>
+# fao58 <- 
+catch_dbpm_obs |>
   ggplot()+
   geom_ribbon(aes(x = year, ymin = min_catch_density, ymax = max_catch_density),
-              fill = "#f1eef6")+
-  geom_line(aes(year, vals, color = res), linewidth = 0.9)+
+              fill = "#d8d6dd")+
+  geom_line(aes(year, vals, color = res, linetype = run), linewidth = 0.9)+
   geom_point(aes(year, vals, color = res, shape = res), size = 1.5)+
   geom_line(aes(year, obs, color = source), linetype = "dashed")+
   geom_point(aes(year, obs, color = source, shape = source), size = 0.2)+
-  scale_color_manual(values = c("#d7301f", "#fc8d59", "#fdcc8a", 
+  scale_color_manual(values = c("#d7301f", "#fc8d59", "#fdcc8a",
                                 "#045a8d", "#2b8cbe", "#74a9cf"),
-                     labels = c("DBPM 0.25°", "DBPM 1°", "DBPM non-spatial",
+                     labels = c("0.25°", "1°", "calibration",
+                                "CCAMLR", "Pauly & Zeller", "Watson & Tidd"))+
+  scale_shape_discrete(labels = c("0.25°", "1°", "calibration",
                                   "CCAMLR", "Pauly & Zeller", "Watson & Tidd"))+
-  scale_shape_discrete(labels = c("DBPM 0.25°", "DBPM 1°", "DBPM non-spatial",
-                                  "CCAMLR", "Pauly & Zeller", "Watson & Tidd"))+
+  scale_linetype_manual(values = c(1, 6), 
+                        labels = c("original", "sea ice mask"))+
   scale_x_continuous(breaks = as.integer(seq(1960, 2010, by = 10)))+
   ylab(~paste("Mean annual catch per unit area (g*", m^-2, ")"))+
   # ylab(expression(atop("Mean annual catch per unit area", 
@@ -191,7 +210,7 @@ ggsave("outputs/composite_fig_catches_obs.png", fig)
 
 # Calculating ORA metrics -------------------------------------------------
 ora_metrics <- catch_dbpm_obs |> 
-  group_by(res) |>
+  group_by(res, run) |>
   summarise(pear_cor = cor(pseudo, vals),
             mae = sum(abs(vals-pseudo))/n(),
             ri = exp(sqrt(sum(log(pseudo/vals)^2)/n())),
