@@ -25,7 +25,8 @@ if __name__ == '__main__':
 
     ## Name of region and model resolution ----
     region = 'fao-48'
-    model_res = '025deg'
+    model_res = '1deg'
+    capped = False
     
     ## Defining input and output folders ----
     base_folder = '/g/data/vf71/la6889/dbpm_inputs/weddell/'
@@ -65,7 +66,7 @@ if __name__ == '__main__':
     ## Loading dynamic data ----
     gridded_esm = os.path.join(base_folder, 'gridded', model_res)
     ds_dynamic = uf.loading_dbpm_dynamic_inputs(
-        gridded_esm, gridded_folder, init_time = init_time, capped = True)
+        gridded_esm, gridded_folder, init_time = init_time, capped = capped)
   
     if init_time is not None:
         init_yr = pd.Timestamp(init_time).year
@@ -101,12 +102,11 @@ if __name__ == '__main__':
         effort = effort.sel(time = slice(effort_time, None))
         #Combine both data arrays
         effort = xr.concat([e_start, effort], dim = 'time')
-        effort = effort.chunk({'lat': len(effort.lat), 'lon': len(effort.lon),
-                               'time': -1})
+        effort = effort.chunk({'lat': -1, 'lon': -1, 'time': -1})
     
     #Creating a single dataset for all dynamic inputs
     ds_dynamic['effort'] = effort
-    ds_dynamic = ds_dynamic.chunk({'time': 1})
+    ds_dynamic = ds_dynamic.chunk({'lat': -1, 'lon': -1, 'time': -1})
 
     #Gridded parameters
     gridded_params = json.load(open(
