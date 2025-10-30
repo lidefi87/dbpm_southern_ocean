@@ -26,12 +26,13 @@ if __name__ == '__main__':
     # Name of region and model resolution ----
     region = 'fao-58'
     reg_name = 'east_antarctica'
-    model_res = '1deg'
+    model_res = '025deg'
+    runs = '_simask'
 
     # Paths to input and output folders
     base_folder = f'/g/data/vf71/la6889/dbpm_inputs/{reg_name}'
     gridded_inputs = os.path.join(base_folder, 'gridded_params', model_res)
-    gridded_outputs = os.path.join(base_folder, 'run_fishing', model_res)
+    gridded_outputs = os.path.join(base_folder, 'run_fishing_seaicemask', model_res)
     outputs_folder = os.path.join(base_folder, 'gridded_dbpm_outputs', model_res)
     #Ensure outputs folder exists
     os.makedirs(outputs_folder, exist_ok = True)
@@ -48,7 +49,7 @@ if __name__ == '__main__':
         os.path.join(gridded_inputs, 'fish-mort-pred*'))[0])['fish_mort_pred']
     
     #Size class bins
-    log10_size_bins_mat = xr.open_zarr('outputs/log10_size_bins_matrix.zarr/')['size_bins']
+    log10_size_bins_mat = xr.open_zarr('../outputs/log10_size_bins_matrix.zarr/')['size_bins']
     size_bin_vals = 10**log10_size_bins_mat
     
     #Area - to be used for masking land areas
@@ -84,7 +85,7 @@ if __name__ == '__main__':
     catch_pred.name = 'catch_pred'
     catch_pred = catch_pred.chunk({'time': 12})
     catch_pred.to_zarr(os.path.join(outputs_folder,
-                                    f'catches_pred_{model_res}_{region}_1841_2010.nc'), 
+                                    f'catches_pred{runs}_{model_res}_{region}_1841_2010.nc'), 
                        mode = 'w', consolidated = True)
 
     # Detritivores
@@ -92,7 +93,7 @@ if __name__ == '__main__':
     catch_det.name = 'catch_det'
     catch_det = catch_det.chunk({'time': 12})
     catch_det.to_zarr(os.path.join(outputs_folder,
-                                    f'catches_det_{model_res}_{region}_1841_2010.nc'), 
+                                    f'catches_det{runs}_{model_res}_{region}_1841_2010.nc'), 
                        mode = 'w', consolidated = True)
     
     ## Calculate total catches per group and time step ---
@@ -100,21 +101,21 @@ if __name__ == '__main__':
     tot_catch_pred = (catch_pred*gridded_params['log_size_increase']).sum('size_class')
     tot_catch_pred.name = 'tot_catch_pred'
     tot_catch_pred.to_zarr(os.path.join(
-        outputs_folder, f'tot_catches_pred_{model_res}_{region}_1841_2010.nc'), 
+        outputs_folder, f'tot_catches_pred{runs}_{model_res}_{region}_1841_2010.nc'), 
                        mode = 'w', consolidated = True)
 
     # Detritivores
     tot_catch_det = (catch_det*gridded_params['log_size_increase']).sum('size_class')
     tot_catch_det.name = 'tot_catch_det'
     tot_catch_det.to_zarr(os.path.join(
-        outputs_folder, f'tot_catches_det_{model_res}_{region}_1841_2010.nc'), 
+        outputs_folder, f'tot_catches_det{runs}_{model_res}_{region}_1841_2010.nc'), 
                        mode = 'w', consolidated = True)
 
     ## Calculate total catches ---
     total_catch = tot_catch_det+tot_catch_pred
     total_catch.name = 'total_catches'
     total_catch.to_zarr(os.path.join(
-        outputs_folder, f'total_catches_{model_res}_{region}_1841_2010.nc'), 
+        outputs_folder, f'total_catches{runs}_{model_res}_{region}_1841_2010.nc'), 
                        mode = 'w', consolidated = True)
 
     ## Calculate weighted mean for yearly catches
@@ -137,8 +138,8 @@ if __name__ == '__main__':
     # Transforming to data frame
     catch_weighted_mean = catch_weighted_mean.to_pandas().reset_index()
     # Adding units 
-    catch_weighted_mean['units'] = 'g*year-1*m-2'
+    catch_weighted_mean['units'] = 't*km-2*year-1'
     # Saving results
     catch_weighted_mean.to_parquet(os.path.join(
-        outputs_folder, f'mean_year_catch_dbpm_{model_res}_{region}_1841_2010.parquet'))
+        outputs_folder, f'mean_year_catch_dbpm{runs}_{model_res}_{region}_1841_2010.parquet'))
     
