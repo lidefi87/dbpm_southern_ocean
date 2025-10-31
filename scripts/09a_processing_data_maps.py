@@ -15,7 +15,7 @@ import json
 ## Model resolution and run identifier ----
 model_res = '1deg'
 # Can be either '_simask' or blank ('')
-runs = ''#_simask'
+runs = '_simask'
 
 ## Get list of relevant files
 base_folder = '/g/data/vf71/la6889/dbpm_inputs'
