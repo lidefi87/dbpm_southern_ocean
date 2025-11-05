@@ -8,7 +8,8 @@ library(arrow)
 library(tidyr)
 library(cowplot)
 library(stringr)
-
+library(grid)
+library(gridExtra)
 
 # Define function to load catches data ------------------------------------
 get_catch_dbpm_obs <- function(base_dir){
@@ -48,12 +49,17 @@ get_catch_dbpm_obs <- function(base_dir){
     pivot_longer(cols = starts_with("catch"), names_to = c("res", "run"), 
                  names_prefix = "catch_", names_pattern = "(.*)_(.*)", 
                  values_to = "vals")
-    
   
   catch_obs <- list.files(file.path(base_dir, "monthly_weighted/1deg"),
                           pattern = "^dbpm_clim", full.names = T) |> 
     read_parquet() |> 
-    filter(year >= 1961) |> 
+    filter(year >= 1961) 
+  
+  reg_code <- catch_obs |> 
+    distinct(region) |> 
+    pull()
+  
+  catch_obs <-  catch_obs|> 
     group_by(year) |> 
     summarise(obs_ccamlr = mean(catch_ccamlr*1e6, na.rm = T),
               obs_pauly = mean(catch_pauly*1e6, na.rm = T),
@@ -76,65 +82,111 @@ get_catch_dbpm_obs <- function(base_dir){
     #Calculating pseudo observations
     mutate(pseudo = case_when(vals < min_catch_density ~ min_catch_density,
                               vals > max_catch_density ~ max_catch_density,
-                              .default = vals))
+                              .default = vals)) |> 
+    mutate(region = reg_code, .after = run)
   
   return(catch_dbpm)
 
 }
 
 
-
 # Loading data ------------------------------------------------------------
-name_reg <- "west_antarctica"
-reg_name_plot <- "Atlantic sector"
-reg <- "fao-88"
-base_dir <- file.path("/g/data/vf71/la6889/dbpm_inputs", name_reg)
+base_dirs <- dir("/g/data/vf71/la6889/dbpm_inputs", pattern = "^[e|w]",
+                 full.names = T)
 
+catch_dbpm_obs <- data.frame()
+
+for(fp in base_dirs){
+  reg_name <- basename(fp) |> 
+    str_replace_all("_", " ") |> 
+    str_to_title()
+  da <- get_catch_dbpm_obs(fp) |> 
+    mutate(reg_name = reg_name, .after = region)
+  catch_dbpm_obs <- catch_dbpm_obs |> 
+    bind_rows(da)
+}
+
+# Save results
+catch_dbpm_obs |> 
+  write_parquet("outputs/simulated_observed_catches_all.parquet")
+# catch_dbpm_obs <- catch_dbpm_obs |>
+#   group_split(region)
 
 # Plotting modelled vs observed catches  ----------------------------------
-catch_dbpm_obs <- get_catch_dbpm_obs(base_dir)
-
-# fao58 <- 
-catch_dbpm_obs |>
+si_catch <- catch_dbpm_obs |> 
+  #Select runs with sea ice mask and calibration (non-spatial)
+  filter(run == "si" | res == "calib") |> 
   ggplot()+
-  geom_ribbon(aes(x = year, ymin = min_catch_density, ymax = max_catch_density),
-              fill = "#d8d6dd")+
-  geom_line(aes(year, vals, color = res, linetype = run), linewidth = 0.9)+
+  geom_ribbon(aes(x = year, ymin = min_catch_density, 
+                  ymax = max_catch_density), fill = "#d8d6dd")+
+  geom_line(aes(year, vals, color = res), linewidth = 0.9)+
   geom_point(aes(year, vals, color = res, shape = res), size = 1.5)+
   geom_line(aes(year, obs, color = source), linetype = "dashed")+
   geom_point(aes(year, obs, color = source, shape = source), size = 0.2)+
-  scale_color_manual(values = c("#d7301f", "#fc8d59", "#fdcc8a",
-                                "#045a8d", "#2b8cbe", "#74a9cf"),
-                     labels = c("0.25°", "1°", "calibration",
-                                "CCAMLR", "Pauly & Zeller", "Watson & Tidd"))+
-  scale_shape_discrete(labels = c("0.25°", "1°", "calibration",
-                                  "CCAMLR", "Pauly & Zeller", "Watson & Tidd"))+
-  scale_linetype_manual(values = c(1, 6), 
-                        labels = c("original", "sea ice mask"))+
+  facet_grid(region~., scales = "free_y")+
+  scale_color_manual(values = c(#"#d7301f",
+    "#fc8d59", "#fdcc8a",
+    "#045a8d", "#2b8cbe", "#74a9cf"),
+    labels = c(#"0.25°", 
+      "1°", "calibration",
+      "CCAMLR", "Pauly & Zeller", "Watson & Tidd"))+
+  scale_shape_discrete(labels = c(#"0.25°", 
+    "1°", "calibration",
+    "CCAMLR", "Pauly & Zeller", "Watson & Tidd"))+
+  # scale_linetype_manual(values = c(1, 6), 
+  #                       labels = c("original", "sea ice mask"))+
   scale_x_continuous(breaks = as.integer(seq(1960, 2010, by = 10)))+
-  ylab(~paste("Mean annual catch per unit area (g*", m^-2, ")"))+
+  ylab(~paste("Mean annual catch per unit area (t*", km^-2, ")"))+
   # ylab(expression(atop("Mean annual catch per unit area", 
-  #                      ~paste("(g*", m^-2, ")"))))+
-  labs(subtitle = paste0(str_to_title(reg_name_plot), " (", 
-                         str_replace_all(str_to_upper(reg), "-", " "), ")"))+
+  #                      ~paste("(t ", km^-2, ")"))))+
+  # labs(subtitle = paste0(name, " (", code, ")"))+
   theme_bw()+
   theme(panel.grid.minor = element_blank(), axis.title.x = element_blank(), 
         axis.title.y = element_text(family = "sans", size = 14),
         axis.text = element_text(family = "sans", size = 12),
         legend.title = element_blank(), 
         legend.byrow = T, legend.direction = "horizontal", 
+        strip.text = element_text(family = "sans", size = 12),
         legend.position = "bottom",
         legend.text = element_text(family = "sans", size = 12), 
         plot.margin = margin(5, 15, 5, 5, "pt"),
         plot.subtitle = element_text(family = "sans", size = 12, hjust = 0.5))
 
-fout <- file.path(base_dir, "gridded_dbpm_outputs", 
-                  paste0("mean_catches_ts_all-res_", reg, "_1961-2010.png"))
 
-ggsave(fout, device = "png")
+#Comparison original and sea ice mask runs
+catch_dbpm_obs |> 
+  ggplot()+
+  geom_ribbon(aes(x = year, ymin = min_catch_density, 
+                  ymax = max_catch_density), fill = "#d8d6dd")+
+  geom_line(aes(year, vals, color = res, linetype = run), linewidth = 0.9)+
+  geom_point(aes(year, vals, color = res, shape = res), size = 1.5)+
+  geom_line(aes(year, obs, color = source), linetype = "dashed")+
+  geom_point(aes(year, obs, color = source, shape = source), size = 0.2)+
+  facet_grid(region~., scales = "free_y")+
+  scale_color_manual("", values = c("#d7301f", "#fc8d59", "#fdcc8a",
+                                "#045a8d", "#2b8cbe", "#74a9cf"),
+                     labels = c("0.25°", "1°", "calibration", "CCAMLR", 
+                                "Pauly & Zeller", "Watson & Tidd"))+
+  scale_shape_discrete("", labels = c("0.25°", "1°", "calibration", "CCAMLR",
+                                  "Pauly & Zeller", "Watson & Tidd"))+
+  scale_linetype_manual("Runs", values = c(1, 6), 
+                        labels = c("original", "sea ice mask"))+
+  scale_x_continuous(breaks = as.integer(seq(1960, 2010, by = 10)))+
+  ylab(~paste("Mean annual catch per unit area (t*", km^-2, ")"))+
+  theme_bw()+
+  theme(panel.grid.minor = element_blank(), axis.title.x = element_blank(), 
+        axis.title.y = element_text(family = "sans", size = 14),
+        axis.text = element_text(family = "sans", size = 12),
+        legend.title = element_blank(), 
+        legend.byrow = T, legend.direction = "horizontal", 
+        strip.text = element_text(family = "sans", size = 12),
+        legend.position = "bottom",
+        legend.text = element_text(family = "sans", size = 12), 
+        plot.margin = margin(5, 15, 5, 5, "pt"),
+        plot.subtitle = element_text(family = "sans", size = 12, hjust = 0.5))
 
-
-
+# Creating plots to get legeds
+# Observed catches
 x <- catch_dbpm_obs |>
   ggplot()+
   geom_ribbon(aes(x = year, ymin = min_catch_density, ymax = max_catch_density),
@@ -144,24 +196,16 @@ x <- catch_dbpm_obs |>
   scale_color_manual(values = c("#045a8d", "#2b8cbe", "#74a9cf"),
                      labels = c("CCAMLR", "Pauly & Zeller", "Watson & Tidd"))+
   scale_shape_discrete(labels = c("CCAMLR", "Pauly & Zeller", "Watson & Tidd"))+
-  scale_x_continuous(breaks = as.integer(seq(1960, 2010, by = 10)))+
-  ylab(~paste("Mean annual catch per unit area (g*", m^-2, ")"))+
-  labs(subtitle = paste0(str_to_title(reg_name_plot), " (", 
-                         str_replace_all(str_to_upper(reg), "-", " "), ")"))+
   guides(color = guide_legend(title = "Observed catches"))+
   guides(shape = guide_legend(title = "Observed catches"))+
   theme_bw()+
-  theme(panel.grid.minor = element_blank(), axis.title.x = element_blank(), 
-        axis.title.y = element_text(family = "sans", size = 14),
-        axis.text = element_text(family = "sans", size = 12),
-        legend.title = element_text(face = "bold"), 
+  theme(legend.title = element_text(face = "bold"), 
         legend.byrow = T, legend.position = "right",
-        legend.text = element_text(family = "sans", size = 12), 
-        plot.margin = margin(5, 15, 5, 5, "pt"),
-        plot.subtitle = element_text(family = "sans", size = 12, hjust = 0.5))
+        legend.text = element_text(family = "sans", size = 12))
 
 leg_obs <- get_legend(x)
 
+# Simulated catches
 y <- catch_dbpm_obs |>
   ggplot()+
   geom_ribbon(aes(x = year, ymin = min_catch_density, ymax = max_catch_density),
@@ -169,48 +213,31 @@ y <- catch_dbpm_obs |>
   geom_line(aes(year, vals, color = res), linewidth = 0.9)+
   geom_point(aes(year, vals, color = res, shape = res), size = 1.5)+
   scale_color_manual(values = c("#d7301f", "#fc8d59", "#fdcc8a"),
-                     labels = c("DBPM 0.25°", "DBPM 1°", "DBPM non-spatial"))+
-  scale_shape_discrete(labels = c("DBPM 0.25°", "DBPM 1°", "DBPM non-spatial"))+
-  scale_x_continuous(breaks = as.integer(seq(1960, 2010, by = 10)))+
-  ylab(~paste("Mean annual catch per unit area (g*", m^-2, ")"))+
-  labs(subtitle = paste0(str_to_title(reg_name_plot), " (", 
-                         str_replace_all(str_to_upper(reg), "-", " "), ")"))+
-  guides(color = guide_legend(title = "Estimated catches"))+
-  guides(shape = guide_legend(title = "Estimated catches"))+
+                     labels = c("0.25°", "1°", "calibration (non-spatial)"))+
+  scale_shape_discrete(labels = c("0.25°", "1°", "calibration (non-spatial)"))+
   theme_bw()+
-  theme(panel.grid.minor = element_blank(), axis.title.x = element_blank(), 
-        axis.title.y = element_text(family = "sans", size = 14),
-        axis.text = element_text(family = "sans", size = 12),
-        legend.title = element_text(face = "bold"), 
+  guides(color = guide_legend(title = "DBPM estimated catches"))+
+  guides(shape = guide_legend(title = "DBPM estimated catches"))+
+  theme(legend.title = element_text(face = "bold"), 
         legend.byrow = T, legend.position = "right",
-        legend.text = element_text(family = "sans", size = 12), 
-        plot.margin = margin(5, 15, 5, 5, "pt"),
-        plot.subtitle = element_text(family = "sans", size = 12, hjust = 0.5))
-
+        legend.text = element_text(family = "sans", size = 12)) 
+        
 leg_est <- get_legend(y)
 
-fao48_noleg <- fao48+theme(legend.position = "none", 
-                           axis.title.y = element_blank())
-fao58_noleg <- fao58+theme(legend.position = "none", 
-                           axis.title.y = element_blank())
-fao88_noleg <- fao88+theme(legend.position = "none", 
-                           axis.title.y = element_blank())
+si_catch_noleg <- si_catch+theme(legend.position = "none")
 
-ytitle <- textGrob(~paste("Mean annual catch per unit area (g*", m^-2, ")"),
-                   rot = 90)
 fig <- grid.arrange(arrangeGrob(
-  plot_grid(plot_grid(fao48_noleg, fao58_noleg, ncol = 2), 
-            plot_grid(fao88_noleg, 
-                      plot_grid(leg_est, leg_obs, nrow = 2, align = "hv"), 
-                      ncol = 2), nrow = 2), left = ytitle))
+  plot_grid(si_catch_noleg, 
+            plot_grid(leg_est, leg_obs, ncol = 2, align = "hv"), 
+            nrow = 2, rel_heights = c(0.8, 0.2))))
 
-ggsave("outputs/composite_fig_catches_obs.png", fig)
+ggsave("outputs/composite_fig_catches_obs.png", fig, height = 6, width = 8)
 
 
 
 # Calculating ORA metrics -------------------------------------------------
 ora_metrics <- catch_dbpm_obs |> 
-  group_by(res, run) |>
+  group_by(res, run, region) |>
   summarise(pear_cor = cor(pseudo, vals),
             mae = sum(abs(vals-pseudo))/n(),
             ri = exp(sqrt(sum(log(pseudo/vals)^2)/n())),
