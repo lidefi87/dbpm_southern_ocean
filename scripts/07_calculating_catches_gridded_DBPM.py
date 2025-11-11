@@ -26,13 +26,23 @@ if __name__ == '__main__':
     # Name of region and model resolution ----
     region = 'fao-58'
     reg_name = 'east_antarctica'
-    model_res = '025deg'
+    model_res = '1deg'
+    
+    # Choose between '_simask' and '_ccamlr_eff' ----
     runs = '_simask'
 
     # Paths to input and output folders
     base_folder = f'/g/data/vf71/la6889/dbpm_inputs/{reg_name}'
     gridded_inputs = os.path.join(base_folder, 'gridded_params', model_res)
-    gridded_outputs = os.path.join(base_folder, 'run_fishing_seaicemask', model_res)
+    if runs == '_simask':
+        gridded_outputs = os.path.join(base_folder, 'run_fishing_seaicemask', 
+                                       model_res)
+    elif runs == '_ccamlr_eff':
+        gridded_outputs = os.path.join(base_folder, 'run_fishing_new_eff', 
+                                       model_res)
+    else:
+        gridded_outputs = os.path.join(base_folder, 'run_fishing', 
+                                       model_res)
     outputs_folder = os.path.join(base_folder, 'gridded_dbpm_outputs', model_res)
     #Ensure outputs folder exists
     os.makedirs(outputs_folder, exist_ok = True)
