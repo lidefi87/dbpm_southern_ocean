@@ -14,7 +14,7 @@ import json
 
 ## Model resolution and run identifier ----
 model_res = '1deg'
-# Can be either '_simask' or blank ('')
+# Can be either '_simask', '_ccamlr_eff', or blank ('')
 runs = '_simask'
 
 ## Get list of relevant files
