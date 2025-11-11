@@ -26,19 +26,19 @@ if __name__ == '__main__':
     ## Name of region and model resolution ----
     reg_name = 'weddell'
     region = 'fao-48'
-    model_res = '1deg'
-    capped = False
+    model_res = '025deg'
+    capped = True
     # If running DBPM for the first time with the new effort set to True
-    first_run = True
+    first_run = False
 
     ## Start DBPM run from a specific time step ----
     # Character: Year and month to initialise DBPM. If starting model with new 
     # effort for the first time, make sure run starts from November the year 
     # before new effort data becomes available
-    init_time = '1969-11'
+    init_time = '2006-11'
     
     ## Defining input and output folders ----
-    base_folder = os.path.join('/g/data/vf71/la6889/dbpm_inputs' reg_name)
+    base_folder = os.path.join('/g/data/vf71/la6889/dbpm_inputs', reg_name)
     gridded_folder = os.path.join(base_folder, 'gridded_params', model_res)
     out_folder = os.path.join(base_folder, 'run_fishing_new_eff', model_res)
     #If output folder does not exist, it will create it
@@ -91,7 +91,7 @@ if __name__ == '__main__':
     if init_time is not None and not first_run:
         #Load effort for time step DBPM starts
         e_start = xr.open_dataarray(glob(os.path.join(
-            out_folder, f'effort_*_{subset_time}.nc'))[0])
+            out_folder, f'effort_*{subset_time}*.nc'))[0])
         #Subset effort data from the timestep after DBPM restart 
         effort = effort.sel(time = slice(effort_time, None))
         #Combine both data arrays
