@@ -1678,3 +1678,49 @@ def exportRatio_intercept_slope(folder_path, resolution, experiment,
                                        f'ui0_spinup*'))
         ui0.to_zarr(fout.replace('ui0_', 'ui0-capped_'), consolidated = True, 
                     mode = 'w')
+
+
+# Merge DBPM outputs to create single yearly or decadal files
+# Merging DBPM gridded outputs (yearly or decadal) ----
+def merge_files(var, folder, merge_by = 'decade', **kwargs):
+    #Getting list of files in folder
+    file_list = sorted(glob(os.path.join(folder, f'{var}*')))
+
+    #Getting the base file name to save merged data
+    base_file = os.path.basename(file_list[-1])
+
+    #Get years if provided
+    if 'years' in kwargs:
+        yrs = kwargs.get('years')
+    else:
+        #Get year from file names
+        yrs = np.unique([int(re.findall('_(\\d{4})-\\d{2}', 
+                                        os.path.basename(f))[0]) for f in file_list])
+    
+    #Merge by year or decade
+    if merge_by == 'decade':
+        dec = np.unique([np.floor(y/10).astype('int') for y in yrs])
+        for d in dec:
+            #Get files included in current decade
+            sub_list = [f for f in file_list if str(d) in f]
+            #Getting minimum and maximum years in the decade
+            ymax = max([y for y in yrs if str(d) in str(y)])
+            ymin = min([y for y in yrs if str(d) in str(y)])
+            #Create file name to save merged data
+            f_out = re.sub('\\d{4}-\\d{2}|\\d{4}', f'{str(ymin)}-{str(ymax)}', base_file)
+            #Open dataset
+            ds = xr.open_mfdataset(sub_list, concat_dim = 'time', combine = 'nested')
+            #Save dataset
+            ds.to_netcdf(os.path.join(folder, f_out))
+    if merge_by == 'year':
+        for y in yrs:
+            #Get files included in current decade
+            sub_list = [f for f in file_list if str(y) in f]
+            #Create file name to save merged data
+            f_out = re.sub('\\d{4}-\\d{2}|\\d{4}', f'{str(y)}', base_file)
+            #Open dataset
+            ds = xr.open_mfdataset(sub_list, concat_dim = 'time', combine = 'nested')
+            #Save dataset
+            ds.to_netcdf(os.path.join(folder, f_out))
+    else:
+        print('"merge_by" should be either "decade" or "year"')
