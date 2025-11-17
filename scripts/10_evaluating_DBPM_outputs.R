@@ -8,8 +8,6 @@ library(arrow)
 library(tidyr)
 library(cowplot)
 library(stringr)
-library(grid)
-library(gridExtra)
 
 # Define function to load catches data ------------------------------------
 get_catch_dbpm_obs <- function(base_dir){
