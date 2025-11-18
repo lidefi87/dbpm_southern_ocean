@@ -139,10 +139,3 @@ fig <- grid.arrange(arrangeGrob(plot_grid(plot_grid(fao48_noleg, fao58_noleg,
                                           nrow = 2), left = ytitle))
 
 ggsave("composite_fig_effort_ccamlr-novaglio.png", fig)
-
-
-
-
-
-
-
