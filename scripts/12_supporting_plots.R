@@ -184,7 +184,7 @@ catch_dbpm_nonspatial <- reg_name |>
 # Spatial estimated catches -----------------------------------------------
 catch_files <- reg_name |> 
   map(\(x) file.path(base_folder, x, "gridded_dbpm_outputs")) |> 
-  map(\(x) list.files(x, "mean_year_catch_dbpm_[0|1]",
+  map(\(x) list.files(x, "mean_year_catch_dbpm_s",
                       full.names = T, recursive = T)) |> 
   unlist()
 
@@ -213,7 +213,7 @@ catch_data |>
 
 # Save results
 catch_data |> 
-  write_parquet("outputs/mean_yr_estimated_catches_1841-2010.parquet")
+  write_parquet("outputs/mean_yr_estimated_catches_simask_1841-2010.parquet")
 
 
 
@@ -328,14 +328,19 @@ catch_both |>
   select(!catch_diff) |> 
   pivot_longer(c(ccamlr, standardised), names_to = "effort", 
                values_to = "mean_vals") |> 
-  ggplot(aes(color = resolution, linetype = effort))+
-  geom_line(aes(year, mean_vals))+
+  left_join(obs_catch, by = c("year", "region")) |> 
+  ggplot()+
+  geom_ribbon(aes(x = year, ymin = min_catch_density, ymax = max_catch_density),
+              fill = "#d8d6dd")+
+  geom_line(aes(year, mean_vals, color = resolution, linetype = effort))+
+  geom_point(aes(year, mean_vals, color = resolution, shape = resolution), 
+             size = 1.25, show.legend = F)+
   scale_color_manual("DBPM resolution",
                      values = c("#d7301f", "#fc8d59", "#fdcc8a"))+
   scale_linetype_manual("Fishing effort source", values = c("dashed", "solid"), 
                         labels = c("CCAMLR", "standard FishMIP"))+
   facet_grid(region~., scales = "free")+
-  labs(y = ~paste("Mean catches per unit area (g ", m^-2, " ", year^-1, ")"))+
+  labs(y = ~paste("Mean catches per unit area (t ", km^-2, " ", year^-1, ")"))+
   theme_bw()+
   theme(strip.text = element_text(family = "sans", size = 12),
         axis.text = element_text(family = "sans", size = 12), 
@@ -350,7 +355,7 @@ catch_both |>
         plot.margin = margin(0, 5, 5, 5, unit = "pt"), 
         legend.margin = margin(5, 5, 0, 5, unit = "pt"))
   
-ggsave("outputs/diff_eff_catch_estimates_comparison.tif")
+ggsave("outputs/diff_eff_catch_estimates_comparison_simask.tif")
 
 
 catch_both |> 
@@ -405,9 +410,6 @@ obs_est_catch |>
   theme(panel.grid.minor = element_blank(), axis.title.x = element_blank())
 
 ggsave("outputs/estimated-obs_catches_comparison.tif")
-
-
-
 
 
 
