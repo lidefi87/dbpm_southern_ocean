@@ -334,10 +334,10 @@ catch_both |>
               fill = "#d8d6dd")+
   geom_line(aes(year, mean_vals, color = resolution, linetype = effort))+
   geom_point(aes(year, mean_vals, color = resolution, shape = resolution), 
-             size = 1.25, show.legend = F)+
+             size = 1., show.legend = F)+
   scale_color_manual("DBPM resolution",
                      values = c("#d7301f", "#fc8d59", "#fdcc8a"))+
-  scale_linetype_manual("Fishing effort source", values = c("dashed", "solid"), 
+  scale_linetype_manual("Fishing effort source", values = c("dashed", "solid"),
                         labels = c("CCAMLR", "standard FishMIP"))+
   facet_grid(region~., scales = "free")+
   labs(y = ~paste("Mean catches per unit area (t ", km^-2, " ", year^-1, ")"))+
@@ -355,7 +355,8 @@ catch_both |>
         plot.margin = margin(0, 5, 5, 5, unit = "pt"), 
         legend.margin = margin(5, 5, 0, 5, unit = "pt"))
   
-ggsave("outputs/diff_eff_catch_estimates_comparison_simask.tif")
+ggsave("outputs/diff_eff_catch_estimates_comparison_simask.tif", width = 8, 
+       height = 5.5)
 
 
 catch_both |> 
