@@ -8,7 +8,6 @@
 import os
 from glob import glob
 import xarray as xr
-import useful_functions as uf
 import json
 
 #Name of region and model resolution
@@ -16,7 +15,7 @@ reg_number = 'fao-58'
 reg_name = 'east_antarctica'
 model_res = '025deg'
 # Choose between '_simask' and '_ccamlr_eff'
-runs = '_simask'
+runs = '_ccamlr_eff'
 # Optional - Subset biomass for predators and detritivores
 # If different from the minimum body size given in the gridded_params variable
 # If not needed, set to "None", otherwise select size class
