@@ -10,10 +10,10 @@ library(gridExtra)
 library(zoo)
 library(purrr)
 
-fao_region <- 58
+fao_region <- 48
 # Name of region
-name_region <- "east_antarctica"
-reg_name_plot <- "Indian sector"
+name_region <- "weddell"
+reg_name_plot <- "Atlantic sector"
 
 base_dir <- file.path("/g/data/vf71/la6889/dbpm_inputs", name_region)
 
@@ -27,7 +27,7 @@ eff <- read_parquet(file.path(forcing_folder,
   filter(year >= 1961)
 
 
-eff_ccamlr <- read_parquet("effort_per_year_by_area.parquet") |> 
+eff_ccamlr <- read_parquet("data/effort_per_year_by_area.parquet") |> 
   filter(asd_area_code == fao_region & year <= 2010) |> 
   select(year, Effort_kW_Days_yr)
 
@@ -90,12 +90,12 @@ effort_both <- eff |>
   pivot_longer(!year, names_to = "source", values_to = "effort")
 
 
-fao58 <- effort_both |>
+fao48 <- effort_both |>
   ggplot(aes(year, effort, colour = source))+
   geom_line()+
   geom_point()+
   scale_color_manual(values = c("#1f78b4", "#33a02c"),
-                     labels = c("CCAMLR", "Novaglio et al"))+
+                     labels = c("CCAMLR (regional)", "FishMIP (global)"))+
   guides(color = guide_legend(title = "Fishing effort sources"))+
   labs(y = ~paste("Total annual fishing effort (kW*days*", km^-2, ")"),
        subtitle = paste0(str_to_title(reg_name_plot), " (FAO ", fao_region,
@@ -113,7 +113,7 @@ fao58 <- effort_both |>
         plot.subtitle = element_text(family = "sans", size = 12, hjust = 0.5))
 
 
-leg <- get_legend(fao48)
+leg <- get_legend(fao58)
 
 fout <- file.path(base_dir, "gridded_dbpm_outputs", 
                   paste0("effort_ts_watson-ccamlr_fao-", fao_region, 
@@ -132,10 +132,9 @@ fao88_noleg <- fao88+theme(legend.position = "none",
 ytitle <- textGrob(~paste("Total annual fishing effort (kW*days*", km^-2, ")"),
                    rot = 90)
 
-
 fig <- grid.arrange(arrangeGrob(plot_grid(plot_grid(fao48_noleg, fao58_noleg, 
                                                     ncol = 2), 
                                           plot_grid(fao88_noleg, leg), 
                                           nrow = 2), left = ytitle))
 
-ggsave("composite_fig_effort_ccamlr-novaglio.png", fig)
+ggsave("outputs/composite_fig_effort_ccamlr-novaglio.png", fig)
